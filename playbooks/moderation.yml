@@ -1,0 +1,120 @@
+---
+- name: Provision Osprey moderation
+  hosts: moderation
+  roles:
+    - base
+  tasks:
+    # --- Extra packages ---
+    - name: Install git
+      apt:
+        name: git
+        state: present
+
+    # --- Data directory ---
+    - name: Create moderation data directory
+      file:
+        path: "{{ data_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Create rules directory
+      file:
+        path: "{{ data_dir }}/rules"
+        state: directory
+        mode: "0755"
+
+    # --- Clone Osprey and build images ---
+    - name: Clone Osprey repo
+      git:
+        repo: "{{ osprey_repo }}"
+        dest: "{{ data_dir }}/osprey"
+        version: "{{ osprey_branch }}"
+        update: true
+      register: osprey_clone
+
+    - name: Build Osprey worker image
+      command: docker build -f osprey_worker/Dockerfile -t osprey-worker:latest .
+      args:
+        chdir: "{{ data_dir }}/osprey"
+      when: osprey_clone.changed
+      notify: restart osprey
+
+    - name: Build Osprey UI image
+      command: docker build -f osprey_ui/Dockerfile -t osprey-ui:latest .
+      args:
+        chdir: "{{ data_dir }}/osprey"
+      when: osprey_clone.changed
+      notify: restart osprey
+
+    # --- Init scripts ---
+    - name: Deploy MinIO bucket init script
+      template:
+        src: ../templates/moderation/init-minio-bucket.sh.j2
+        dest: "{{ data_dir }}/init-minio-bucket.sh"
+        mode: "0755"
+
+    - name: Deploy Bigtable init script
+      copy:
+        src: ../files/moderation/init-bigtable.sh
+        dest: "{{ data_dir }}/init-bigtable.sh"
+        mode: "0755"
+
+    - name: Deploy Osprey UI entrypoint
+      copy:
+        src: ../files/moderation/osprey-ui-entrypoint.sh
+        dest: "{{ data_dir }}/osprey-ui-entrypoint.sh"
+        mode: "0755"
+      notify: restart osprey
+
+    # --- Config ---
+    - name: Deploy Druid environment file
+      template:
+        src: ../templates/moderation/druid.env.j2
+        dest: "{{ data_dir }}/druid.env"
+        mode: "0600"
+      notify: restart osprey
+
+    - name: Deploy Osprey Docker Compose file
+      template:
+        src: ../templates/moderation/docker-compose.osprey.yml.j2
+        dest: "{{ data_dir }}/docker-compose.osprey.yml"
+      notify: restart osprey
+
+    - name: Deploy Caddyfile
+      template:
+        src: ../templates/moderation/Caddyfile.j2
+        dest: "{{ data_dir }}/Caddyfile"
+      notify: restart caddy
+
+    # --- Systemd unit ---
+    - name: Deploy Osprey systemd service
+      template:
+        src: ../templates/moderation/osprey.service.j2
+        dest: /etc/systemd/system/osprey.service
+      notify:
+        - reload systemd
+        - restart osprey
+
+    - name: Enable and start Osprey service
+      systemd:
+        name: osprey
+        enabled: true
+        state: started
+
+    # --- Starter rules ---
+    - name: Deploy SML rules
+      copy:
+        src: ../files/moderation/rules/
+        dest: "{{ data_dir }}/rules/"
+        mode: "0644"
+      notify: restart osprey
+
+  handlers:
+    - name: restart osprey
+      systemd:
+        name: osprey
+        state: restarted
+
+    - name: restart caddy
+      shell: docker restart caddy
+      failed_when: false

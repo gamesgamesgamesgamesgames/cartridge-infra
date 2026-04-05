@@ -1,0 +1,9 @@
+# Ansible
+inventory.yml
+host_vars/
+.vault-pass
+*.retry
+.env
+
+# OS
+.DS_Store

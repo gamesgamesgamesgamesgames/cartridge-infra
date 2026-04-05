@@ -1,0 +1,87 @@
+name: Deploy pds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'roles/base/**'
+      - 'templates/pds/**'
+      - 'files/pds/**'
+      - 'playbooks/pds.yml'
+      - '.github/workflows/deploy-pds.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-pds
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy pds host
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Setup SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.PDS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.PDS_SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Create inventory
+        run: |
+          printf 'all:\n  hosts:\n    pds:\n      ansible_host: "%s"\n      ansible_ssh_private_key_file: ~/.ssh/deploy_key\n' \
+            "$SERVER_IP" > inventory.yml
+        env:
+          SERVER_IP: ${{ secrets.PDS_SERVER_IP }}
+
+      - name: Run Ansible playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.PDS_GRAFANA_ADMIN_PASSWORD }}
+          DISCORD_ALERT_WEBHOOK_URL: ${{ secrets.PDS_DISCORD_ALERT_WEBHOOK_URL }}
+          PDS_JWT_SECRET: ${{ secrets.PDS_JWT_SECRET }}
+          PDS_ADMIN_PASSWORD: ${{ secrets.PDS_ADMIN_PASSWORD }}
+          PDS_PLC_ROTATION_KEY: ${{ secrets.PDS_PLC_ROTATION_KEY }}
+          PDS_BLOBSTORE_S3_ACCESS_KEY: ${{ secrets.PDS_BLOBSTORE_S3_ACCESS_KEY }}
+          PDS_BLOBSTORE_S3_SECRET_KEY: ${{ secrets.PDS_BLOBSTORE_S3_SECRET_KEY }}
+        run: |
+          ansible-playbook playbooks/pds.yml \
+            -e "pds_data_dir=/pds" \
+            -e "pds_hostname=pds.gamesgamesgamesgames.games" \
+            -e "pds_admin_email=admin@pds.gamesgamesgamesgames.games" \
+            -e "pds_image_tag=0.4" \
+            -e "pds_blob_upload_limit=104857600" \
+            -e "pds_blobstore_type=s3" \
+            -e "pds_invite_required=true" \
+            -e "pds_rate_limits_enabled=true" \
+            -e "pds_jwt_secret=$PDS_JWT_SECRET" \
+            -e "pds_admin_password=$PDS_ADMIN_PASSWORD" \
+            -e "pds_plc_rotation_key=$PDS_PLC_ROTATION_KEY" \
+            -e "grafana_hostname=grafana.gamesgamesgamesgames.games" \
+            -e "grafana_admin_password=$GRAFANA_ADMIN_PASSWORD" \
+            -e "pds_blobstore_s3_bucket=pds-blobs" \
+            -e "pds_blobstore_s3_region=auto" \
+            -e "pds_blobstore_s3_endpoint=https://289e5405fe26470bc6feebdce9582822.r2.cloudflarestorage.com" \
+            -e "pds_blobstore_s3_force_path_style=true" \
+            -e "pds_blobstore_s3_access_key=$PDS_BLOBSTORE_S3_ACCESS_KEY" \
+            -e "pds_blobstore_s3_secret_key=$PDS_BLOBSTORE_S3_SECRET_KEY" \
+            -e "grafana_port=3001" \
+            -e "loki_port=3100" \
+            -e "promtail_port=9080" \
+            -e "prometheus_port=9090" \
+            -e "alertmanager_port=9093" \
+            -e "node_exporter_port=9100" \
+            -e "discord_alert_webhook_url=$DISCORD_ALERT_WEBHOOK_URL" \
+            -e "loki_retention_period=30d"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

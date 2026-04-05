@@ -1,0 +1,59 @@
+name: Deploy meilisearch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'roles/base/**'
+      - 'templates/meilisearch/**'
+      - 'playbooks/meilisearch.yml'
+      - '.github/workflows/deploy-meilisearch.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-meilisearch
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy meilisearch host
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Setup SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.MEILISEARCH_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.MEILISEARCH_SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Create inventory
+        run: |
+          printf 'all:\n  hosts:\n    meilisearch:\n      ansible_host: "%s"\n      ansible_ssh_private_key_file: ~/.ssh/deploy_key\n' \
+            "$SERVER_IP" > inventory.yml
+        env:
+          SERVER_IP: ${{ secrets.MEILISEARCH_SERVER_IP }}
+
+      - name: Run Ansible playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+          MEILISEARCH_MASTER_KEY: ${{ secrets.MEILISEARCH_MASTER_KEY }}
+        run: |
+          ansible-playbook playbooks/meilisearch.yml \
+            -e "meilisearch_data_dir=/opt/meilisearch" \
+            -e "meilisearch_image_tag=v1.14" \
+            -e "meilisearch_master_key=$MEILISEARCH_MASTER_KEY" \
+            -e "meilisearch_private_ip=10.0.0.3" \
+            -e "appview_private_ip=10.0.0.2" \
+            -e '{"ufw_allowed_from":[{"port":"7700","from_ip":"10.0.0.2","proto":"tcp"}]}'
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

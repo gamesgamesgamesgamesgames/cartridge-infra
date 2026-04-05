@@ -1,0 +1,24 @@
+# host_vars/appview/main.yml
+
+# --- HappyView ---
+happyview_hostname: gamesgamesgamesgames.games
+happyview_image: ghcr.io/gamesgamesgamesgamesgames/happyview
+happyview_image_tag: "2.0.0-dev.30"  # Latest release tag; updated via repository_dispatch
+happyview_data_dir: /opt/happyview
+
+# --- Postgres ---
+postgres_db: happyview
+postgres_user: happyview
+postgres_password: "{{ vault_postgres_password }}"
+
+# --- HappyView runtime config ---
+happyview_public_url: "https://{{ happyview_hostname }}"
+happyview_session_secret: "{{ vault_session_secret }}"
+happyview_token_encryption_key: "{{ vault_token_encryption_key }}"
+happyview_relay_url: "https://bsky.network"
+happyview_jetstream_url: "wss://jetstream1.us-east.bsky.network"
+happyview_event_log_retention_days: 30
+
+# --- Backup ---
+pg_backup_dir: /opt/happyview/backups
+pg_backup_retention_days: 7

@@ -1,0 +1,6 @@
+---
+# Provisions every host. Runs each service playbook in order.
+- import_playbook: appview.yml
+- import_playbook: pds.yml
+- import_playbook: moderation.yml
+- import_playbook: meilisearch.yml

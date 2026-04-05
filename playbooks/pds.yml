@@ -1,0 +1,257 @@
+---
+- name: Provision PDS + observability
+  hosts: pds
+  roles:
+    - base
+  tasks:
+    - name: Run PDS installer
+      shell: echo "n" | bash <(curl -fsSL https://raw.githubusercontent.com/bluesky-social/pds/main/installer.sh) {{ pds_data_dir }} {{ pds_hostname }} {{ pds_admin_email }}
+      args:
+        creates: "{{ pds_data_dir }}/account.sqlite"
+
+    - name: Deploy pds.env
+      template:
+        src: ../templates/pds/pds.env.j2
+        dest: "{{ pds_data_dir }}/pds.env"
+        mode: "0600"
+      notify: restart pds
+
+    - name: Deploy PDS compose
+      template:
+        src: ../templates/pds/docker-compose.pds.yml.j2
+        dest: "{{ pds_data_dir }}/compose.yaml"
+        mode: "0644"
+      notify: restart pds
+
+    - name: Deploy pds.service
+      template:
+        src: ../templates/pds/pds.service.j2
+        dest: /etc/systemd/system/pds.service
+        mode: "0644"
+      notify:
+        - reload systemd
+        - restart pds
+
+    - name: Enable PDS service
+      systemd:
+        name: pds
+        enabled: yes
+        state: started
+
+    - name: Create observability data directories
+      file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "0755"
+      loop:
+        - { path: "{{ pds_data_dir }}/loki-data", owner: "10001", group: "10001" }
+        - { path: "{{ pds_data_dir }}/grafana-data", owner: "472", group: "472" }
+        - { path: "{{ pds_data_dir }}/grafana/provisioning/dashboards", owner: "472", group: "472" }
+        - { path: "{{ pds_data_dir }}/grafana/provisioning/datasources", owner: "472", group: "472" }
+        - { path: "{{ pds_data_dir }}/prometheus-data", owner: "65534", group: "65534" }
+
+    - name: Deploy Grafana datasources config
+      template:
+        src: ../templates/pds/grafana-datasources.yaml.j2
+        dest: "{{ pds_data_dir }}/grafana/provisioning/datasources/datasources.yaml"
+        owner: "472"
+        group: "472"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Grafana dashboards provider config
+      copy:
+        src: ../files/pds/grafana/provisioning/dashboards/dashboards.yaml
+        dest: "{{ pds_data_dir }}/grafana/provisioning/dashboards/dashboards.yaml"
+        owner: "472"
+        group: "472"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Grafana dashboard JSON
+      copy:
+        src: ../files/pds/grafana/provisioning/dashboards/pds-overview.json
+        dest: "{{ pds_data_dir }}/grafana/provisioning/dashboards/pds-overview.json"
+        owner: "472"
+        group: "472"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Grafana system dashboard JSON
+      copy:
+        src: ../files/pds/grafana/provisioning/dashboards/pds-system.json
+        dest: "{{ pds_data_dir }}/grafana/provisioning/dashboards/pds-system.json"
+        owner: "472"
+        group: "472"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Grafana custom index.html
+      copy:
+        src: ../files/pds/grafana/index.html
+        dest: "{{ pds_data_dir }}/grafana/index.html"
+        owner: "472"
+        group: "472"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Grafana custom CSS
+      copy:
+        src: ../files/pds/grafana/custom.css
+        dest: "{{ pds_data_dir }}/grafana/custom.css"
+        owner: "472"
+        group: "472"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Loki config
+      template:
+        src: ../templates/pds/loki-config.yaml.j2
+        dest: "{{ pds_data_dir }}/loki-config.yaml"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Promtail config
+      template:
+        src: ../templates/pds/promtail-config.yaml.j2
+        dest: "{{ pds_data_dir }}/promtail-config.yaml"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Prometheus config
+      template:
+        src: ../templates/pds/prometheus-config.yaml.j2
+        dest: "{{ pds_data_dir }}/prometheus-config.yaml"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Prometheus alert rules
+      template:
+        src: ../templates/pds/prometheus-alerts.yaml.j2
+        dest: "{{ pds_data_dir }}/prometheus-alerts.yaml"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Alertmanager config
+      template:
+        src: ../templates/pds/alertmanager-config.yaml.j2
+        dest: "{{ pds_data_dir }}/alertmanager-config.yaml"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy observability Docker Compose
+      template:
+        src: ../templates/pds/docker-compose.observability.yml.j2
+        dest: "{{ pds_data_dir }}/docker-compose.observability.yml"
+        mode: "0644"
+      notify: restart observability
+
+    - name: Deploy Caddyfile
+      template:
+        src: ../templates/pds/Caddyfile.j2
+        dest: "{{ pds_data_dir }}/caddy/etc/caddy/Caddyfile"
+        mode: "0644"
+      notify: restart caddy
+
+    - name: Deploy observability systemd service
+      template:
+        src: ../templates/pds/observability.service.j2
+        dest: /etc/systemd/system/observability.service
+        mode: "0644"
+      notify:
+        - reload systemd
+        - restart observability
+
+    - name: Ensure stats log file exists
+      copy:
+        content: ""
+        dest: /var/log/pds-stats.log
+        force: no
+        mode: "0644"
+
+    - name: Deploy PDS stats script
+      template:
+        src: ../templates/pds/pds-stats.sh.j2
+        dest: "{{ pds_data_dir }}/pds-stats.sh"
+        mode: "0755"
+
+    - name: Deploy PDS stats systemd service
+      template:
+        src: ../templates/pds/pds-stats.service.j2
+        dest: /etc/systemd/system/pds-stats.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Deploy PDS stats systemd timer
+      copy:
+        src: ../files/pds/pds-stats.timer
+        dest: /etc/systemd/system/pds-stats.timer
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Download node_exporter
+      get_url:
+        url: https://github.com/prometheus/node_exporter/releases/download/v1.9.0/node_exporter-1.9.0.linux-amd64.tar.gz
+        dest: /tmp/node_exporter.tar.gz
+        mode: "0644"
+
+    - name: Extract node_exporter binary
+      shell: tar xzf /tmp/node_exporter.tar.gz -C /tmp && cp /tmp/node_exporter-1.9.0.linux-amd64/node_exporter /usr/local/bin/node_exporter && chmod 755 /usr/local/bin/node_exporter
+      args:
+        creates: /usr/local/bin/node_exporter
+
+    - name: Deploy node-exporter systemd service
+      copy:
+        src: ../files/pds/node-exporter.service
+        dest: /etc/systemd/system/node-exporter.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable and start node-exporter
+      systemd:
+        name: node-exporter
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Deploy logrotate config for pds-stats
+      copy:
+        content: |
+          /var/log/pds-stats.log {
+              daily
+              rotate 7
+              compress
+              missingok
+              notifempty
+              copytruncate
+          }
+        dest: /etc/logrotate.d/pds-stats
+        mode: "0644"
+
+    - name: Enable PDS stats timer
+      systemd:
+        name: pds-stats.timer
+        enabled: yes
+        state: started
+
+    - name: Enable observability service
+      systemd:
+        name: observability
+        enabled: yes
+        state: started
+
+  handlers:
+    - name: restart pds
+      systemd:
+        name: pds
+        state: restarted
+
+    - name: restart observability
+      systemd:
+        name: observability
+        state: restarted
+
+    - name: restart caddy
+      shell: docker restart caddy

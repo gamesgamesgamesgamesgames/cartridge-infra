@@ -1,0 +1,6 @@
+[Unit]
+Description=Postgres backup for HappyView
+
+[Service]
+Type=oneshot
+ExecStart={{ happyview_data_dir }}/pg-backup.sh

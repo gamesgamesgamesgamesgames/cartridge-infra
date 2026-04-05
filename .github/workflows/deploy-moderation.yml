@@ -1,0 +1,84 @@
+name: Deploy moderation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'roles/base/**'
+      - 'templates/moderation/**'
+      - 'files/moderation/**'
+      - 'playbooks/moderation.yml'
+      - '.github/workflows/deploy-moderation.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-moderation
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy moderation host
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Setup SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.MODERATION_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.MODERATION_SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Create inventory
+        run: |
+          printf 'all:\n  hosts:\n    moderation:\n      ansible_host: "%s"\n      ansible_ssh_private_key_file: ~/.ssh/deploy_key\n' \
+            "$SERVER_IP" > inventory.yml
+        env:
+          SERVER_IP: ${{ secrets.MODERATION_SERVER_IP }}
+
+      - name: Run Ansible playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+          POSTGRES_PASSWORD: ${{ secrets.MODERATION_POSTGRES_PASSWORD }}
+          MINIO_SECRET_KEY: ${{ secrets.MODERATION_MINIO_SECRET_KEY }}
+          CADDY_AUTH_PASSWORD_HASH: ${{ secrets.MODERATION_CADDY_AUTH_PASSWORD_HASH }}
+        run: |
+          ansible-playbook playbooks/moderation.yml \
+            -e "data_dir=/moderation" \
+            -e "osprey_ui_hostname=moderation.gamesgamesgamesgames.games" \
+            -e "caddy_auth_username=trezy" \
+            -e "caddy_auth_password_hash=$CADDY_AUTH_PASSWORD_HASH" \
+            -e "osprey_repo=https://github.com/roostorg/osprey.git" \
+            -e "osprey_branch=main" \
+            -e "osprey_worker_image=osprey-worker:latest" \
+            -e "osprey_ui_image=osprey-ui:latest" \
+            -e "osprey_rules_path=/moderation/rules" \
+            -e "kafka_image=confluentinc/cp-kafka:7.4.0" \
+            -e "postgres_image=postgres:18" \
+            -e "postgres_user=osprey" \
+            -e "postgres_db=osprey" \
+            -e "postgres_password=$POSTGRES_PASSWORD" \
+            -e "minio_image=minio/minio:latest" \
+            -e "minio_access_key=minioadmin" \
+            -e "minio_secret_key=$MINIO_SECRET_KEY" \
+            -e "minio_bucket=execution-output" \
+            -e "druid_image=apache/druid:34.0.0" \
+            -e "snowflake_image=ghcr.io/ayubun/snowflake-id-worker:0" \
+            -e "osprey_ui_port=5002" \
+            -e "osprey_api_port=5004" \
+            -e "osprey_worker_port=5001" \
+            -e "kafka_port=9092" \
+            -e "postgres_port=5432" \
+            -e "minio_port=9000" \
+            -e "minio_console_port=9001" \
+            -e "druid_router_port=8888"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

@@ -1,0 +1,42 @@
+---
+- name: Deploy HappyView (fast path — templates + docker compose up)
+  hosts: appview
+  # No vars_files — GitHub Actions passes all vars via -e flags.
+  # For local runs, host_vars/appview/*.yml are loaded automatically.
+  tasks:
+    - name: Deploy docker-compose.yml
+      template:
+        src: ../templates/appview/docker-compose.yml.j2
+        dest: "{{ happyview_data_dir }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Deploy Caddyfile
+      template:
+        src: ../templates/appview/Caddyfile.j2
+        dest: "{{ happyview_data_dir }}/Caddyfile"
+        mode: "0644"
+
+    - name: Deploy happyview.env
+      template:
+        src: ../templates/appview/happyview.env.j2
+        dest: "{{ happyview_data_dir }}/happyview.env"
+        mode: "0600"
+
+    - name: Deploy backup script
+      template:
+        src: ../templates/appview/pg-backup.sh.j2
+        dest: "{{ happyview_data_dir }}/pg-backup.sh"
+        mode: "0755"
+
+    - name: Pull latest images
+      command: docker compose pull
+      args:
+        chdir: "{{ happyview_data_dir }}"
+
+    - name: Restart stack
+      command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ happyview_data_dir }}"
+
+    - name: Prune old images
+      command: docker image prune -f

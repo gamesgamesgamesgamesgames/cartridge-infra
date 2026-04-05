@@ -1,0 +1,127 @@
+---
+# --- System packages ---
+- name: Update apt cache
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base packages
+  apt:
+    name: "{{ base_apt_packages }}"
+    state: present
+
+# --- UFW ---
+- name: Configure UFW defaults
+  ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: incoming, policy: deny }
+    - { direction: outgoing, policy: allow }
+  when: ufw_enabled
+
+- name: Allow inbound TCP ports
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ ufw_allowed_tcp_ports }}"
+  when: ufw_enabled
+
+- name: Allow inbound rules scoped to source IPs
+  ufw:
+    rule: allow
+    from_ip: "{{ item.from_ip }}"
+    port: "{{ item.port }}"
+    proto: "{{ item.proto | default('tcp') }}"
+  loop: "{{ ufw_allowed_from }}"
+  when: ufw_enabled
+
+- name: Enable UFW
+  ufw:
+    state: enabled
+  when: ufw_enabled
+
+# --- Unattended upgrades ---
+- name: Configure unattended-upgrades
+  copy:
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+  when: unattended_upgrades_enabled
+
+# --- Swap ---
+- name: Create swap file
+  command: fallocate -l {{ swap_size }} /swapfile
+  args:
+    creates: /swapfile
+  when: swap_enabled
+
+- name: Set swap file permissions
+  file:
+    path: /swapfile
+    mode: "0600"
+  when: swap_enabled
+
+- name: Check if swap is active
+  command: swapon --show=NAME --noheadings
+  register: swap_check
+  changed_when: false
+  when: swap_enabled
+
+- name: Format swap file
+  command: mkswap /swapfile
+  when: swap_enabled and '/swapfile' not in swap_check.stdout
+
+- name: Enable swap file
+  command: swapon /swapfile
+  when: swap_enabled and '/swapfile' not in swap_check.stdout
+
+- name: Add swap to fstab
+  lineinfile:
+    path: /etc/fstab
+    line: "/swapfile none swap sw 0 0"
+    state: present
+  when: swap_enabled
+
+- name: Set swappiness
+  sysctl:
+    name: vm.swappiness
+    value: "{{ swap_swappiness }}"
+    state: present
+    reload: true
+  when: swap_enabled
+
+# --- Docker ---
+- name: Add Docker GPG key
+  shell: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker.gpg
+  args:
+    creates: /usr/share/keyrings/docker.gpg
+  when: docker_enabled
+
+- name: Add Docker repo
+  copy:
+    content: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable\n"
+    dest: /etc/apt/sources.list.d/docker.list
+  when: docker_enabled
+
+- name: Install Docker
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+  when: docker_enabled
+
+- name: Ensure Docker is running
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+  when: docker_enabled

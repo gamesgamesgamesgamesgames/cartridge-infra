@@ -1,0 +1,46 @@
+services:
+  caddy:
+    container_name: caddy
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+      - "{{ happyview_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+
+  happyview:
+    container_name: happyview
+    image: "{{ happyview_image }}:{{ happyview_image_tag }}"
+    restart: unless-stopped
+    env_file:
+      - "{{ happyview_data_dir }}/happyview.env"
+    volumes:
+      - "{{ happyview_data_dir }}/plugins:/app/plugins"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    container_name: postgres
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "{{ postgres_db }}"
+      POSTGRES_USER: "{{ postgres_user }}"
+      POSTGRES_PASSWORD: "{{ postgres_password }}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{ postgres_user }}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  caddy-data:
+  caddy-config:
+  pgdata:

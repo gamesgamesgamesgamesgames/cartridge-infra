@@ -1,0 +1,45 @@
+# host_vars/moderation/main.yml
+
+# --- Base data dir ---
+data_dir: /moderation
+
+# --- Hostnames (Caddy will provision TLS) ---
+osprey_ui_hostname: moderation.gamesgamesgamesgames.games
+
+# --- Osprey ---
+osprey_repo: "https://github.com/roostorg/osprey.git"
+osprey_branch: main
+osprey_worker_image: "osprey-worker:latest"
+osprey_ui_image: "osprey-ui:latest"
+osprey_rules_path: /moderation/rules
+
+# --- Kafka ---
+kafka_image: "confluentinc/cp-kafka:7.4.0"
+
+# --- PostgreSQL ---
+postgres_image: "postgres:18"
+postgres_user: osprey
+postgres_db: osprey
+postgres_password: "{{ vault_postgres_password }}"
+
+# --- MinIO ---
+minio_image: "minio/minio:latest"
+minio_access_key: minioadmin
+minio_secret_key: "{{ vault_minio_secret_key }}"
+minio_bucket: execution-output
+
+# --- Druid ---
+druid_image: "apache/druid:34.0.0"
+
+# --- Snowflake ---
+snowflake_image: "ghcr.io/ayubun/snowflake-id-worker:0"
+
+# --- Service ports (all localhost-only, exposed via Caddy) ---
+osprey_ui_port: 5002
+osprey_api_port: 5004
+osprey_worker_port: 5001
+kafka_port: 9092
+postgres_port: 5432
+minio_port: 9000
+minio_console_port: 9001
+druid_router_port: 8888

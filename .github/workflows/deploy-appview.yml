@@ -1,0 +1,75 @@
+name: Deploy appview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'roles/base/**'
+      - 'templates/appview/**'
+      - 'playbooks/appview*.yml'
+      - '.github/workflows/deploy-appview.yml'
+  repository_dispatch:
+    types: [deploy]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-appview
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Hetzner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Setup SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.APPVIEW_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.APPVIEW_SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Create inventory
+        run: |
+          printf 'all:\n  hosts:\n    appview:\n      ansible_host: "%s"\n      ansible_ssh_private_key_file: ~/.ssh/deploy_key\n' \
+            "$SERVER_IP" > inventory.yml
+        env:
+          SERVER_IP: ${{ secrets.APPVIEW_SERVER_IP }}
+
+      - name: Run Ansible playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+          POSTGRES_PASSWORD: ${{ secrets.APPVIEW_POSTGRES_PASSWORD }}
+          SESSION_SECRET: ${{ secrets.APPVIEW_SESSION_SECRET }}
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.APPVIEW_TOKEN_ENCRYPTION_KEY }}
+          MEILISEARCH_API_KEY: ${{ secrets.APPVIEW_MEILISEARCH_API_KEY }}
+        run: |
+          ansible-playbook playbooks/appview-deploy.yml \
+            -e "happyview_hostname=gamesgamesgamesgames.games" \
+            -e "happyview_image=ghcr.io/gamesgamesgamesgamesgames/happyview" \
+            -e "happyview_image_tag=${{ github.event.client_payload.image_tag || 'latest' }}" \
+            -e "happyview_data_dir=/opt/happyview" \
+            -e "postgres_db=happyview" \
+            -e "postgres_user=happyview" \
+            -e "postgres_password=$POSTGRES_PASSWORD" \
+            -e "happyview_public_url=https://gamesgamesgamesgames.games" \
+            -e "happyview_session_secret=$SESSION_SECRET" \
+            -e "happyview_token_encryption_key=$TOKEN_ENCRYPTION_KEY" \
+            -e "happyview_relay_url=https://bsky.network" \
+            -e "happyview_jetstream_url=wss://jetstream1.us-east.bsky.network" \
+            -e "happyview_event_log_retention_days=30" \
+            -e "happyview_meilisearch_url=http://10.0.0.3:7700" \
+            -e "happyview_meilisearch_api_key=$MEILISEARCH_API_KEY" \
+            -e "pg_backup_dir=/opt/happyview/backups" \
+            -e "pg_backup_retention_days=7"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

@@ -1,0 +1,42 @@
+{{ osprey_ui_hostname }} {
+    basicauth {
+        {{ caddy_auth_username }} {{ caddy_auth_password_hash }}
+    }
+
+    # Static assets → UI container
+    @ui {
+        path /static/*
+        path /favicon.ico
+        path /manifest.json
+        path /asset-manifest.json
+        path /robots.txt
+    }
+    handle @ui {
+        reverse_proxy localhost:{{ osprey_ui_port }}
+    }
+
+    # Index HTML → UI container (only for the root and client-side routes)
+    @html {
+        header Accept *text/html*
+        not path /config
+        not path /docs/*
+        not path /events/*
+        not path /entities/*
+        not path /queries/*
+        not path /saved-queries/*
+        not path /bulk_action/*
+        not path /bulk_history/*
+        not path /ability_tokens/*
+        not path /my_abilities
+        not path /rules_visualizer/*
+        not path /_health
+    }
+    handle @html {
+        reverse_proxy localhost:{{ osprey_ui_port }}
+    }
+
+    # Everything else → API
+    handle {
+        reverse_proxy localhost:{{ osprey_api_port }}
+    }
+}

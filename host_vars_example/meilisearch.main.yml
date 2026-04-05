@@ -1,0 +1,12 @@
+# host_vars/meilisearch/main.yml
+
+# --- Meilisearch ---
+meilisearch_data_dir: /opt/meilisearch
+meilisearch_image_tag: "v1.14"
+meilisearch_master_key: "{{ vault_meilisearch_master_key }}"
+meilisearch_private_ip: "10.0.0.2"
+appview_private_ip: "10.0.0.1"
+
+# --- Base role: allow 7700 from appview only ---
+ufw_allowed_from:
+  - { port: "7700", from_ip: "{{ appview_private_ip }}", proto: tcp }

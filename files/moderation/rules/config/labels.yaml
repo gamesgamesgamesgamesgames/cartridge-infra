@@ -1,0 +1,13 @@
+labels:
+  spam_suspect:
+    valid_for: [User]
+    connotation: negative
+    description: User submitted content matching spam patterns
+  rate_limited:
+    valid_for: [User]
+    connotation: negative
+    description: User exceeded rate limits
+  blocked:
+    valid_for: [User]
+    connotation: negative
+    description: User is blocked from the platform

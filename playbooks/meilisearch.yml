@@ -1,0 +1,58 @@
+---
+- name: Provision Meilisearch
+  hosts: meilisearch
+  roles:
+    - base
+  tasks:
+    # --- Application ---
+    - name: Create data directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ meilisearch_data_dir }}"
+        - "{{ meilisearch_data_dir }}/dumps"
+
+    - name: Deploy docker-compose.yml
+      template:
+        src: ../templates/meilisearch/docker-compose.yml.j2
+        dest: "{{ meilisearch_data_dir }}/docker-compose.yml"
+        mode: "0644"
+      notify: restart meilisearch stack
+
+    - name: Deploy Caddyfile
+      template:
+        src: ../templates/meilisearch/Caddyfile.j2
+        dest: "{{ meilisearch_data_dir }}/Caddyfile"
+        mode: "0644"
+      notify: restart caddy
+
+    - name: Deploy meilisearch.env
+      template:
+        src: ../templates/meilisearch/meilisearch.env.j2
+        dest: "{{ meilisearch_data_dir }}/meilisearch.env"
+        mode: "0600"
+      notify: restart meilisearch stack
+
+    - name: Pull Docker images
+      command: docker compose pull
+      args:
+        chdir: "{{ meilisearch_data_dir }}"
+
+    - name: Start the stack
+      command: docker compose up -d
+      args:
+        chdir: "{{ meilisearch_data_dir }}"
+
+    - name: Prune old images
+      command: docker image prune -f
+
+  handlers:
+    - name: restart meilisearch stack
+      command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ meilisearch_data_dir }}"
+
+    - name: restart caddy
+      command: docker restart caddy

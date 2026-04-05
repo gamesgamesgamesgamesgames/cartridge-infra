@@ -1,0 +1,78 @@
+---
+- name: Migrate SQLite to Postgres
+  hosts: appview
+  vars:
+    sqlite_file: "{{ happyview_data_dir }}/happyview.db"
+  tasks:
+    - name: Check SQLite file exists
+      stat:
+        path: "{{ sqlite_file }}"
+      register: sqlite_stat
+
+    - name: Fail if SQLite file not found
+      fail:
+        msg: "SQLite file not found at {{ sqlite_file }}. Copy it to the server first."
+      when: not sqlite_stat.stat.exists
+
+    - name: Install sqlite3
+      apt:
+        name: sqlite3
+        state: present
+
+    - name: Start Postgres
+      command: docker compose up -d postgres
+      args:
+        chdir: "{{ happyview_data_dir }}"
+
+    - name: Wait for Postgres to be healthy
+      command: docker compose exec postgres pg_isready -U {{ postgres_user }}
+      args:
+        chdir: "{{ happyview_data_dir }}"
+      register: pg_ready
+      retries: 10
+      delay: 3
+      until: pg_ready.rc == 0
+
+    - name: Start HappyView briefly to run migrations
+      command: docker compose up -d happyview
+      args:
+        chdir: "{{ happyview_data_dir }}"
+
+    - name: Wait for HappyView to finish migrations and start listening
+      wait_for:
+        host: localhost
+        port: 3000
+        timeout: 120
+        delay: 5
+
+    - name: Stop HappyView (keep Postgres running)
+      command: docker compose stop happyview
+      args:
+        chdir: "{{ happyview_data_dir }}"
+
+    - name: Deploy migration script
+      template:
+        src: ../templates/appview/migrate-sqlite.sh.j2
+        dest: "{{ happyview_data_dir }}/migrate-sqlite.sh"
+        mode: "0755"
+
+    - name: Run migration
+      command: "{{ happyview_data_dir }}/migrate-sqlite.sh {{ sqlite_file }}"
+      args:
+        chdir: "{{ happyview_data_dir }}"
+      register: migration_output
+
+    - name: Show migration output
+      debug:
+        var: migration_output.stdout_lines
+
+    - name: Start HappyView
+      command: docker compose up -d
+      args:
+        chdir: "{{ happyview_data_dir }}"
+
+    - name: Remove SQLite file
+      file:
+        path: "{{ sqlite_file }}"
+        state: absent
+      when: migration_output.rc == 0

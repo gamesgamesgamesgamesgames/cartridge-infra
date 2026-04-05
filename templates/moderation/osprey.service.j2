@@ -1,0 +1,14 @@
+[Unit]
+Description=Osprey Moderation Service
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory={{ data_dir }}
+ExecStart=/usr/bin/docker compose --file {{ data_dir }}/docker-compose.osprey.yml up --detach
+ExecStop=/usr/bin/docker compose --file {{ data_dir }}/docker-compose.osprey.yml down
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,30 @@
+services:
+  caddy:
+    container_name: caddy
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+      - "{{ meilisearch_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+
+  meilisearch:
+    container_name: meilisearch
+    image: "getmeili/meilisearch:{{ meilisearch_image_tag }}"
+    restart: unless-stopped
+    env_file:
+      - "{{ meilisearch_data_dir }}/meilisearch.env"
+    volumes:
+      - meili-data:/meili_data
+      - "{{ meilisearch_data_dir }}/dumps:/dumps"
+    ports:
+      - "{{ meilisearch_private_ip }}:7700:7700"
+
+volumes:
+  caddy-data:
+  caddy-config:
+  meili-data:

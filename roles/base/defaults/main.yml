@@ -1,0 +1,30 @@
+---
+# Swap
+swap_enabled: true
+swap_size: 4G
+swap_swappiness: 10
+
+# UFW
+ufw_enabled: true
+# TCP ports to allow inbound from anywhere. Override per-host to add ports.
+ufw_allowed_tcp_ports:
+  - "22"
+  - "80"
+  - "443"
+# Rules scoped to specific source IPs: [{ port, from_ip, proto }]
+ufw_allowed_from:  []
+
+# Unattended-upgrades
+unattended_upgrades_enabled: true
+
+# Docker
+docker_enabled: true
+
+# Base apt packages installed on every host
+base_apt_packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - ufw
+  - unattended-upgrades

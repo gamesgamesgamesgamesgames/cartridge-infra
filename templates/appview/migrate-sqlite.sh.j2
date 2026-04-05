@@ -1,0 +1,98 @@
+#!/bin/bash
+set -euo pipefail
+
+SQLITE_DB="$1"
+
+if [ -z "$SQLITE_DB" ]; then
+  echo "Usage: $0 <path-to-sqlite-db>"
+  exit 1
+fi
+
+if [ ! -f "$SQLITE_DB" ]; then
+  echo "Error: SQLite database not found at $SQLITE_DB"
+  exit 1
+fi
+
+# Create custom tables that Lua scripts created ad-hoc in SQLite.
+# These are NOT part of HappyView's SQLx migrations but contain production data.
+echo "=== Creating custom tables in Postgres ==="
+docker exec -i postgres psql -U {{ postgres_user }} -d {{ postgres_db }} <<'CUSTOM_SQL'
+CREATE TABLE IF NOT EXISTS slugs (
+    slug TEXT NOT NULL PRIMARY KEY,
+    uri TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS external_ids (
+    service TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    uri TEXT NOT NULL,
+    PRIMARY KEY (service, external_id)
+);
+CREATE INDEX IF NOT EXISTS idx_external_ids_uri ON external_ids(uri);
+CREATE TABLE IF NOT EXISTS game_popularity (
+    steam_id TEXT PRIMARY KEY,
+    ccu INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE TABLE IF NOT EXISTS stats_cache (
+    key TEXT PRIMARY KEY,
+    value INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (now())
+);
+CREATE TABLE IF NOT EXISTS genre_counts_cache (
+    genre TEXT PRIMARY KEY,
+    count INTEGER NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (now())
+);
+CUSTOM_SQL
+echo ""
+
+# Get list of tables (exclude SQLite internals and sqlx migrations)
+TABLES=$(sqlite3 "$SQLITE_DB" "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != '_sqlx_migrations' ORDER BY name;")
+
+echo "Tables to migrate:"
+echo "$TABLES"
+echo ""
+
+WORK_DIR=$(mktemp -d)
+trap "rm -rf $WORK_DIR" EXIT
+
+for TABLE in $TABLES; do
+  echo "=== Migrating table: $TABLE ==="
+
+  # Get column names
+  COLUMNS=$(sqlite3 "$SQLITE_DB" "PRAGMA table_info($TABLE);" | cut -d'|' -f2 | paste -sd,)
+
+  # Export to CSV
+  sqlite3 -header -csv "$SQLITE_DB" "SELECT * FROM $TABLE;" > "$WORK_DIR/$TABLE.csv"
+
+  ROW_COUNT=$(wc -l < "$WORK_DIR/$TABLE.csv")
+  ROW_COUNT=$((ROW_COUNT - 1))  # subtract header
+  echo "  Exported $ROW_COUNT rows"
+
+  if [ "$ROW_COUNT" -gt 0 ]; then
+    # Atomic TRUNCATE + COPY in a single psql transaction.
+    # COPY FROM STDIN in psql reads lines until \. terminator.
+    {
+      echo "BEGIN;"
+      echo "ALTER TABLE $TABLE DISABLE TRIGGER ALL;"
+      echo "TRUNCATE TABLE $TABLE CASCADE;"
+      echo "COPY $TABLE($COLUMNS) FROM STDIN WITH (FORMAT csv, HEADER true);"
+      cat "$WORK_DIR/$TABLE.csv"
+      echo "\\."
+      echo "ALTER TABLE $TABLE ENABLE TRIGGER ALL;"
+      echo "COMMIT;"
+    } | docker exec -i postgres psql -U {{ postgres_user }} -d {{ postgres_db }}
+  fi
+
+  # Verify row count
+  PG_COUNT=$(docker exec postgres psql -U {{ postgres_user }} -d {{ postgres_db }} -t -A -c "SELECT COUNT(*) FROM $TABLE;")
+  echo "  Postgres row count: $PG_COUNT (expected: $ROW_COUNT)"
+
+  if [ "$PG_COUNT" != "$ROW_COUNT" ]; then
+    echo "  WARNING: Row count mismatch!"
+  fi
+
+  echo ""
+done
+
+echo "Migration complete!"

@@ -1,0 +1,4 @@
+#!/bin/sh
+mc alias set myminio http://minio:9000 {{ minio_access_key }} {{ minio_secret_key }}
+mc mb --ignore-existing myminio/{{ minio_bucket }}
+echo "Bucket '{{ minio_bucket }}' ready"

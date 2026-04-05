@@ -8,6 +8,7 @@ on:
       - 'templates/moderation/**'
       - 'files/moderation/**'
       - 'playbooks/moderation.yml'
+      - 'ansible.cfg'
       - '.github/workflows/deploy-moderation.yml'
   workflow_dispatch:
 

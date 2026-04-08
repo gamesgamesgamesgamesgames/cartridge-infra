@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'roles/base/**'
-      - 'templates/appview/**'
-      - 'playbooks/appview*.yml'
-      - 'ansible.cfg'
-      - '.github/workflows/deploy-appview.yml'
+      - "roles/base/**"
+      - "templates/appview/**"
+      - "playbooks/appview*.yml"
+      - "ansible.cfg"
+      - ".github/workflows/deploy-appview.yml"
   repository_dispatch:
     types: [deploy]
   workflow_dispatch:
@@ -55,7 +55,7 @@ jobs:
           ansible-playbook playbooks/appview-deploy.yml \
             -e "happyview_hostname=gamesgamesgamesgames.games" \
             -e "happyview_image=ghcr.io/gamesgamesgamesgamesgames/happyview" \
-            -e "happyview_image_tag=${{ github.event.client_payload.image_tag || '2.0.0-dev.33' }}" \
+            -e "happyview_image_tag=${{ github.event.client_payload.image_tag || '2.0.0-dev.34' }}" \
             -e "happyview_data_dir=/opt/happyview" \
             -e "postgres_db=happyview" \
             -e "postgres_user=happyview" \

@@ -54,6 +54,7 @@ jobs:
           ATPROTO_PASSWORD: ${{ secrets.SYNC_ATPROTO_PASSWORD }}
           HAPPYVIEW_URL: ${{ secrets.SYNC_HAPPYVIEW_URL }}
           HAPPYVIEW_API_KEY: ${{ secrets.SYNC_HAPPYVIEW_API_KEY }}
+          POSTGRES_PASSWORD: ${{ secrets.APPVIEW_POSTGRES_PASSWORD }}
         run: |
           ansible-playbook playbooks/sync.yml \
             -e "twitch_client_id=$TWITCH_CLIENT_ID" \
@@ -62,7 +63,10 @@ jobs:
             -e "atproto_identifier=$ATPROTO_IDENTIFIER" \
             -e "atproto_password=$ATPROTO_PASSWORD" \
             -e "happyview_url=$HAPPYVIEW_URL" \
-            -e "happyview_api_key=$HAPPYVIEW_API_KEY"
+            -e "happyview_api_key=$HAPPYVIEW_API_KEY" \
+            -e "postgres_user=happyview" \
+            -e "postgres_password=$POSTGRES_PASSWORD" \
+            -e "postgres_db=happyview"
 
       - name: Cleanup SSH key
         if: always()

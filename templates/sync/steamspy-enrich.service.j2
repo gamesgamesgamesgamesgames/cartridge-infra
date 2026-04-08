@@ -1,0 +1,11 @@
+[Unit]
+Description=SteamSpy popularity enrichment
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/igdb-scrape
+ExecStart=/opt/igdb-scrape/node_modules/.bin/tsx src/steamspy-enrich.ts
+EnvironmentFile=/opt/igdb-scrape/.env
+StandardOutput=append:/var/log/igdb-scrape/steamspy-enrich.log
+StandardError=append:/var/log/igdb-scrape/steamspy-enrich.log

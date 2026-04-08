@@ -1,0 +1,69 @@
+name: Deploy sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'roles/base/**'
+      - 'templates/sync/**'
+      - 'playbooks/sync.yml'
+      - 'ansible.cfg'
+      - '.github/workflows/deploy-sync.yml'
+  repository_dispatch:
+    types: [deploy-sync]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-sync
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy sync to appview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Setup SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.APPVIEW_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.APPVIEW_SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Create inventory
+        run: |
+          printf 'all:\n  hosts:\n    appview:\n      ansible_host: "%s"\n      ansible_ssh_private_key_file: ~/.ssh/deploy_key\n' \
+            "$SERVER_IP" > inventory.yml
+        env:
+          SERVER_IP: ${{ secrets.APPVIEW_SERVER_IP }}
+
+      - name: Run Ansible playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+          TWITCH_CLIENT_ID: ${{ secrets.SYNC_TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.SYNC_TWITCH_CLIENT_SECRET }}
+          ATPROTO_SERVICE: ${{ secrets.SYNC_ATPROTO_SERVICE }}
+          ATPROTO_IDENTIFIER: ${{ secrets.SYNC_ATPROTO_IDENTIFIER }}
+          ATPROTO_PASSWORD: ${{ secrets.SYNC_ATPROTO_PASSWORD }}
+          HAPPYVIEW_URL: ${{ secrets.SYNC_HAPPYVIEW_URL }}
+          HAPPYVIEW_API_KEY: ${{ secrets.SYNC_HAPPYVIEW_API_KEY }}
+        run: |
+          ansible-playbook playbooks/sync.yml \
+            -e "twitch_client_id=$TWITCH_CLIENT_ID" \
+            -e "twitch_client_secret=$TWITCH_CLIENT_SECRET" \
+            -e "atproto_service=$ATPROTO_SERVICE" \
+            -e "atproto_identifier=$ATPROTO_IDENTIFIER" \
+            -e "atproto_password=$ATPROTO_PASSWORD" \
+            -e "happyview_url=$HAPPYVIEW_URL" \
+            -e "happyview_api_key=$HAPPYVIEW_API_KEY"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

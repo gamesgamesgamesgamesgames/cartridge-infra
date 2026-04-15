@@ -1,0 +1,11 @@
+# Multi-stage build: use the official caddy builder image to compile
+# Caddy with the Cloudflare DNS plugin, then copy the binary into a
+# minimal runtime image.
+ARG CADDY_VERSION=2.10.0
+
+FROM caddy:${CADDY_VERSION}-builder AS builder
+RUN xcaddy build \
+    --with github.com/caddy-dns/cloudflare
+
+FROM caddy:${CADDY_VERSION}-alpine
+COPY --from=builder /usr/bin/caddy /usr/bin/caddy

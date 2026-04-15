@@ -7,7 +7,6 @@ on:
       - 'roles/base/**'
       - 'templates/kart-pds/**'
       - 'files/kart-pds/**'
-      - 'host_vars/kart-pds/**'
       - 'playbooks/kart-pds.yml'
       - 'ansible.cfg'
       - '.github/workflows/deploy-kart-pds.yml'
@@ -59,6 +58,14 @@ jobs:
             -i inventory.yml \
             --private-key ~/.ssh/deploy_key \
             -u root \
+            -e "kart_pds_data_dir=/opt/kart-pds" \
+            -e "kart_pds_hostname=pds.kart.sh" \
+            -e "kart_pds_handle_domain=kart.sh" \
+            -e "kart_pds_contact_email=admin@kart.sh" \
+            -e "kart_pds_blob_upload_limit=104857600" \
+            -e "kart_pds_image=ghcr.io/gamesgamesgamesgamesgames/tranquil-pds:latest" \
+            -e "kart_pds_caddy_image=ghcr.io/gamesgamesgamesgamesgames/caddy-cloudflare:2.10.0" \
+            -e "kart_pds_postgres_image=postgres:18-alpine" \
             -e "kart_pds_postgres_password=$KART_PDS_POSTGRES_PASSWORD" \
             -e "kart_pds_jwt_secret=$KART_PDS_JWT_SECRET" \
             -e "kart_pds_dpop_secret=$KART_PDS_DPOP_SECRET" \

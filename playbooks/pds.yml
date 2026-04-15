@@ -236,6 +236,38 @@
         enabled: yes
         state: started
 
+    - name: Install sqlite3 for sequencer prune
+      apt:
+        name: sqlite3
+        state: present
+
+    - name: Deploy sequencer prune script
+      template:
+        src: ../templates/pds/prune-sequencer.sh.j2
+        dest: /usr/local/bin/prune-sequencer.sh
+        mode: "0755"
+
+    - name: Deploy sequencer prune systemd service
+      copy:
+        src: ../files/pds/prune-sequencer.service
+        dest: /etc/systemd/system/prune-sequencer.service
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Deploy sequencer prune systemd timer
+      copy:
+        src: ../files/pds/prune-sequencer.timer
+        dest: /etc/systemd/system/prune-sequencer.timer
+        mode: "0644"
+      notify: reload systemd
+
+    - name: Enable sequencer prune timer
+      systemd:
+        name: prune-sequencer.timer
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
     - name: Enable observability service
       systemd:
         name: observability

@@ -1,0 +1,10 @@
+[Unit]
+Description=Prune pds sequencer.sqlite rows older than retention window
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/prune-sequencer.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

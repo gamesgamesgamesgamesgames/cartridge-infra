@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+
+DB={{ pds_data_dir }}/sequencer.sqlite
+RETENTION_DAYS={{ pds_sequencer_retention_days | default(7) }}
+BATCH=50000
+
+before=$(stat -c %s "$DB")
+echo "sequencer size before: $(numfmt --to=iec "$before")"
+
+total=$(sqlite3 "$DB" "SELECT COUNT(*) FROM repo_seq WHERE sequencedAt < datetime('now', '-${RETENTION_DAYS} days');")
+echo "candidate rows: $total"
+
+deleted=0
+while [ "$deleted" -lt "$total" ]; do
+  sqlite3 "$DB" "DELETE FROM repo_seq WHERE seq IN (SELECT seq FROM repo_seq WHERE sequencedAt < datetime('now', '-${RETENTION_DAYS} days') LIMIT ${BATCH});"
+  deleted=$((deleted + BATCH))
+  sqlite3 "$DB" "PRAGMA wal_checkpoint(TRUNCATE);" > /dev/null
+done
+
+sqlite3 "$DB" "PRAGMA wal_checkpoint(TRUNCATE);" > /dev/null
+after=$(stat -c %s "$DB")
+echo "sequencer size after: $(numfmt --to=iec "$after")"
+echo "done"

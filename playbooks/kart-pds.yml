@@ -86,7 +86,7 @@
       ansible.builtin.command: >-
         docker compose -f {{ kart_pds_data_dir }}/docker-compose.yml
         run --rm --no-deps tranquil-pds
-        tranquil-pds validate --ignore-secrets --config /etc/tranquil-pds/config.toml
+        tranquil-pds validate --ignore-secrets
       changed_when: false
 
     - name: Enable kart-pds service

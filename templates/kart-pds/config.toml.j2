@@ -1,0 +1,22 @@
+# Rendered by Ansible into {{ kart_pds_data_dir }}/config.toml
+# Mounted into the tranquil-pds container at /etc/tranquil-pds/config.toml.
+# Secrets come from tranquil-pds.env; see tranquil-pds.env.j2.
+
+[server]
+hostname = "{{ kart_pds_hostname }}"
+host = "0.0.0.0"
+port = 3000
+user_handle_domains = ["{{ kart_pds_handle_domain }}"]
+invite_code_required = true
+contact_email = "{{ kart_pds_contact_email }}"
+max_blob_size = {{ kart_pds_blob_upload_limit }}
+
+[storage]
+backend = "filesystem"
+path = "/var/lib/tranquil/blobs"
+repo_backend = "postgres"
+
+[database]
+# DATABASE_URL env var overrides this; see tranquil-pds.env.
+max_connections = 20
+min_connections = 2

@@ -1,0 +1,61 @@
+# Rendered by Ansible into {{ kart_pds_data_dir }}/docker-compose.yml
+services:
+  db:
+    image: {{ kart_pds_postgres_image }}
+    restart: unless-stopped
+    env_file:
+      - postgres.env
+    volumes:
+      - {{ kart_pds_data_dir }}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tranquil_pds -d pds"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+
+  tranquil-pds:
+    image: {{ kart_pds_image }}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - tranquil-pds.env
+    volumes:
+      - {{ kart_pds_data_dir }}/config.toml:/etc/tranquil-pds/config.toml:ro
+      - {{ kart_pds_data_dir }}/tranquil-data:/var/lib/tranquil/blobs
+    expose:
+      - "3000"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+
+  caddy:
+    image: {{ kart_pds_caddy_image }}
+    restart: unless-stopped
+    depends_on:
+      tranquil-pds:
+        condition: service_started
+    env_file:
+      - caddy.env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - {{ kart_pds_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro
+      - {{ kart_pds_data_dir }}/caddy/data:/data
+      - {{ kart_pds_data_dir }}/caddy/config:/config
+    deploy:
+      resources:
+        limits:
+          memory: 256M

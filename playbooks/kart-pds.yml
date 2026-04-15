@@ -1,0 +1,107 @@
+---
+- name: Provision kart-pds (Tranquil PDS + Postgres + Caddy)
+  hosts: kart-pds
+  become: yes
+  roles:
+    - base
+  tasks:
+    - name: Ensure kart-pds data directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ kart_pds_data_dir }}"
+        - "{{ kart_pds_data_dir }}/postgres"
+        - "{{ kart_pds_data_dir }}/tranquil-data"
+        - "{{ kart_pds_data_dir }}/caddy"
+        - "{{ kart_pds_data_dir }}/caddy/data"
+        - "{{ kart_pds_data_dir }}/caddy/config"
+
+    - name: Log in to GHCR
+      community.docker.docker_login:
+        registry_url: ghcr.io
+        username: gamesgamesgamesgamesgames
+        password: "{{ kart_pds_ghcr_token }}"
+      when: kart_pds_ghcr_token is defined and kart_pds_ghcr_token | length > 0
+      no_log: true
+
+    - name: Deploy docker-compose.yml
+      template:
+        src: ../templates/kart-pds/docker-compose.yml.j2
+        dest: "{{ kart_pds_data_dir }}/docker-compose.yml"
+        mode: "0644"
+      notify: restart kart-pds
+
+    - name: Deploy Caddyfile
+      template:
+        src: ../templates/kart-pds/Caddyfile.j2
+        dest: "{{ kart_pds_data_dir }}/Caddyfile"
+        mode: "0644"
+      notify: restart kart-pds
+
+    - name: Deploy Tranquil PDS config.toml
+      template:
+        src: ../templates/kart-pds/config.toml.j2
+        dest: "{{ kart_pds_data_dir }}/config.toml"
+        mode: "0644"
+      notify: restart kart-pds
+
+    - name: Deploy tranquil-pds.env
+      template:
+        src: ../templates/kart-pds/tranquil-pds.env.j2
+        dest: "{{ kart_pds_data_dir }}/tranquil-pds.env"
+        mode: "0600"
+      notify: restart kart-pds
+
+    - name: Deploy postgres.env
+      template:
+        src: ../templates/kart-pds/postgres.env.j2
+        dest: "{{ kart_pds_data_dir }}/postgres.env"
+        mode: "0600"
+      notify: restart kart-pds
+
+    - name: Deploy caddy.env
+      template:
+        src: ../templates/kart-pds/caddy.env.j2
+        dest: "{{ kart_pds_data_dir }}/caddy.env"
+        mode: "0600"
+      notify: restart kart-pds
+
+    - name: Deploy kart-pds.service
+      template:
+        src: ../templates/kart-pds/kart-pds.service.j2
+        dest: /etc/systemd/system/kart-pds.service
+        mode: "0644"
+      notify:
+        - reload systemd
+        - restart kart-pds
+
+    - name: Pull kart-pds images
+      ansible.builtin.command: docker compose -f {{ kart_pds_data_dir }}/docker-compose.yml pull
+      changed_when: true
+      notify: restart kart-pds
+
+    - name: Validate Tranquil PDS config
+      ansible.builtin.command: >-
+        docker compose -f {{ kart_pds_data_dir }}/docker-compose.yml
+        run --rm --no-deps tranquil-pds
+        tranquil-pds validate --ignore-secrets --config /etc/tranquil-pds/config.toml
+      changed_when: false
+
+    - name: Enable kart-pds service
+      systemd:
+        name: kart-pds
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: restart kart-pds
+      systemd:
+        name: kart-pds
+        state: restarted

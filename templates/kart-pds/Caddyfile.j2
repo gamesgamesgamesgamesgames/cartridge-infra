@@ -1,0 +1,21 @@
+{
+    email {{ kart_pds_contact_email }}
+}
+
+# Wildcard cert for the whole kart.sh zone via Cloudflare DNS-01.
+# Covers:
+#   - {{ kart_pds_hostname }} (the PDS service hostname)
+#   - *.{{ kart_pds_handle_domain }} (user handle subdomains like trezy.kart.sh)
+# One cert, DNS-01 challenge, no per-subdomain issuance.
+*.{{ kart_pds_handle_domain }}, {{ kart_pds_hostname }} {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
+
+    log {
+        output stdout
+        format json
+    }
+
+    reverse_proxy http://tranquil-pds:3000
+}

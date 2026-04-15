@@ -1,0 +1,71 @@
+name: Deploy kart-pds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'roles/base/**'
+      - 'templates/kart-pds/**'
+      - 'files/kart-pds/**'
+      - 'host_vars/kart-pds/**'
+      - 'playbooks/kart-pds.yml'
+      - 'ansible.cfg'
+      - '.github/workflows/deploy-kart-pds.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-kart-pds
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy kart-pds host
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Setup SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.KART_PDS_SSH_KEY }}
+          SERVER_IP: ${{ secrets.KART_PDS_SERVER_IP }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SERVER_IP" >> ~/.ssh/known_hosts
+
+      - name: Create inventory
+        env:
+          SERVER_IP: ${{ secrets.KART_PDS_SERVER_IP }}
+        run: |
+          printf 'all:\n  hosts:\n    kart-pds:\n      ansible_host: "%s"\n      ansible_ssh_private_key_file: ~/.ssh/deploy_key\n' \
+            "$SERVER_IP" > inventory.yml
+
+      - name: Run Ansible playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+          KART_PDS_POSTGRES_PASSWORD: ${{ secrets.KART_PDS_POSTGRES_PASSWORD }}
+          KART_PDS_JWT_SECRET: ${{ secrets.KART_PDS_JWT_SECRET }}
+          KART_PDS_DPOP_SECRET: ${{ secrets.KART_PDS_DPOP_SECRET }}
+          KART_PDS_MASTER_KEY: ${{ secrets.KART_PDS_MASTER_KEY }}
+          KART_PDS_CLOUDFLARE_API_TOKEN: ${{ secrets.KART_PDS_CLOUDFLARE_API_TOKEN }}
+          KART_PDS_GHCR_TOKEN: ${{ secrets.KART_PDS_GHCR_TOKEN }}
+        run: |
+          ansible-playbook playbooks/kart-pds.yml \
+            -i inventory.yml \
+            --private-key ~/.ssh/deploy_key \
+            -u root \
+            -e "kart_pds_postgres_password=$KART_PDS_POSTGRES_PASSWORD" \
+            -e "kart_pds_jwt_secret=$KART_PDS_JWT_SECRET" \
+            -e "kart_pds_dpop_secret=$KART_PDS_DPOP_SECRET" \
+            -e "kart_pds_master_key=$KART_PDS_MASTER_KEY" \
+            -e "kart_pds_cloudflare_api_token=$KART_PDS_CLOUDFLARE_API_TOKEN" \
+            -e "kart_pds_ghcr_token=$KART_PDS_GHCR_TOKEN"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

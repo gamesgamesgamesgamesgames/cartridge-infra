@@ -9,3 +9,5 @@ all:
       ansible_host: 0.0.0.0
     meilisearch:
       ansible_host: 0.0.0.0
+    kart-pds:
+      ansible_host: 0.0.0.0

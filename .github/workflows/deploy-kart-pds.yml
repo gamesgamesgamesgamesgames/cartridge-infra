@@ -52,6 +52,7 @@ jobs:
           KART_PDS_DPOP_SECRET: ${{ secrets.KART_PDS_DPOP_SECRET }}
           KART_PDS_MASTER_KEY: ${{ secrets.KART_PDS_MASTER_KEY }}
           KART_PDS_CLOUDFLARE_API_TOKEN: ${{ secrets.KART_PDS_CLOUDFLARE_API_TOKEN }}
+          KART_PDS_DISCORD_BOT_TOKEN: ${{ secrets.KART_PDS_DISCORD_BOT_TOKEN }}
           KART_PDS_GHCR_TOKEN: ${{ secrets.KART_PDS_GHCR_TOKEN }}
         run: |
           ansible-playbook playbooks/kart-pds.yml \
@@ -71,7 +72,8 @@ jobs:
             -e "kart_pds_dpop_secret=$KART_PDS_DPOP_SECRET" \
             -e "kart_pds_master_key=$KART_PDS_MASTER_KEY" \
             -e "kart_pds_cloudflare_api_token=$KART_PDS_CLOUDFLARE_API_TOKEN" \
-            -e "kart_pds_ghcr_token=$KART_PDS_GHCR_TOKEN"
+            -e "kart_pds_ghcr_token=$KART_PDS_GHCR_TOKEN" \
+            -e "kart_pds_discord_bot_token=$KART_PDS_DISCORD_BOT_TOKEN"
 
       - name: Cleanup SSH key
         if: always()

@@ -56,7 +56,7 @@ jobs:
             -e "happyview_hostname=gamesgamesgamesgames.games" \
             -e "cartridge_api_hostname=api.cartridge.dev" \
             -e "happyview_image=ghcr.io/gamesgamesgamesgamesgames/happyview" \
-            -e "happyview_image_tag=${{ github.event.client_payload.image_tag || '2.4.0-dev.3' }}" \
+            -e "happyview_image_tag=${{ github.event.client_payload.image_tag || '2.4.0' }}" \
             -e "happyview_data_dir=/opt/happyview" \
             -e "postgres_db=happyview" \
             -e "postgres_user=happyview" \

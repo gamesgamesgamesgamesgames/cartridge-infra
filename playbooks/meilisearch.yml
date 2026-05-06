@@ -35,6 +35,13 @@
         mode: "0600"
       notify: restart meilisearch stack
 
+    - name: Deploy index settings
+      template:
+        src: ../templates/meilisearch/index-settings.json.j2
+        dest: "{{ meilisearch_data_dir }}/index-settings.json"
+        mode: "0600"
+      register: index_settings_changed
+
     - name: Pull Docker images
       command: docker compose pull
       args:
@@ -47,6 +54,76 @@
 
     - name: Prune old images
       command: docker image prune -f
+
+    # --- Index configuration ---
+    - name: Wait for Meilisearch to be healthy
+      uri:
+        url: "http://{{ meilisearch_private_ip }}:7700/health"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ meilisearch_master_key }}"
+      register: health_check
+      until: health_check.status == 200
+      retries: 30
+      delay: 2
+
+    - name: Create records index
+      uri:
+        url: "http://{{ meilisearch_private_ip }}:7700/indexes"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ meilisearch_master_key }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          uid: records
+          primaryKey: id
+        status_code: [200, 202]
+      register: create_index_result
+      failed_when: >
+        create_index_result.status not in [200, 202]
+        and 'already_exists' not in (create_index_result.json.message | default(''))
+
+    - name: Wait for index creation task
+      uri:
+        url: "http://{{ meilisearch_private_ip }}:7700/tasks/{{ create_index_result.json.taskUid }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ meilisearch_master_key }}"
+      register: index_task
+      until: index_task.json.status in ['succeeded', 'failed']
+      retries: 30
+      delay: 2
+      when: create_index_result.status in [200, 202] and create_index_result.json.taskUid is defined
+
+    - name: Apply index settings
+      uri:
+        url: "http://{{ meilisearch_private_ip }}:7700/indexes/records/settings"
+        method: PATCH
+        headers:
+          Authorization: "Bearer {{ meilisearch_master_key }}"
+          Content-Type: "application/json"
+        body_format: json
+        body: "{{ lookup('file', meilisearch_data_dir + '/index-settings.json') }}"
+        status_code: [200, 202]
+      register: settings_result
+
+    - name: Wait for settings task
+      uri:
+        url: "http://{{ meilisearch_private_ip }}:7700/tasks/{{ settings_result.json.taskUid }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ meilisearch_master_key }}"
+      register: settings_task
+      until: settings_task.json.status in ['succeeded', 'failed']
+      retries: 60
+      delay: 5
+      when: settings_result.json.taskUid is defined
+
+    - name: Verify settings task succeeded
+      fail:
+        msg: "Meilisearch settings task failed: {{ settings_task.json.error | default('unknown error') }}"
+      when: settings_task.json.status | default('') == 'failed'
 
   handlers:
     - name: restart meilisearch stack

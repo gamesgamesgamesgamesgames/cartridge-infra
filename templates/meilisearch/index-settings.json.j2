@@ -1,0 +1,107 @@
+{
+  "filterableAttributes": [
+    "type",
+    "profileType",
+    "did",
+    "genres",
+    "themes",
+    "modes",
+    "playerPerspectives",
+    "applicationType",
+    "uri",
+    "cancelled",
+    "publishedAt",
+    "firstReleaseDate",
+    "ageRatings",
+    "category",
+    "collectionType",
+    "country",
+    "status",
+    "igdbId",
+    "steamId",
+    "gogId",
+    "epicGamesId",
+    "humbleBundleId",
+    "playStationId",
+    "xboxId",
+    "nintendoEshopId",
+    "appleAppStoreId",
+    "googlePlayId",
+    "externalIds.igdb"
+  ],
+  "sortableAttributes": [
+    "name",
+    "displayName",
+    "publishedAt",
+    "firstReleaseDate"
+  ],
+  "searchableAttributes": [
+    "name",
+    "displayName",
+    "alternativeNames",
+    "alternativeName",
+    "abbreviation",
+    "summary",
+    "description",
+    "keywords",
+    "storyline"
+  ],
+  "rankingRules": [
+    "words",
+    "typo",
+    "proximity",
+    "attribute",
+    "sort",
+    "exactness",
+    "applicationTypeRank:asc",
+    "firstReleaseDate:desc"
+  ],
+  "synonyms": {
+    "rpg": ["role-playing game", "role playing game"],
+    "role-playing game": ["rpg"],
+    "fps": ["first-person shooter", "first person shooter"],
+    "first-person shooter": ["fps"],
+    "rts": ["real-time strategy", "real time strategy"],
+    "real-time strategy": ["rts"],
+    "mmo": ["massively multiplayer online"],
+    "mmorpg": ["massively multiplayer online role-playing game"],
+    "dlc": ["downloadable content"],
+    "downloadable content": ["dlc"],
+    "indie": ["independent"],
+    "co_op": ["cooperative", "coop"],
+    "coop": ["cooperative", "co-op"],
+    "pvp": ["player versus player", "player vs player"],
+    "pve": ["player versus environment", "player vs environment"],
+    "vr": ["virtual reality"],
+    "virtual reality": ["vr"],
+    "ar": ["augmented reality"],
+    "augmented reality": ["ar"],
+    "jrpg": ["japanese role-playing game", "japanese rpg"],
+    "arpg": ["action role-playing game", "action rpg"],
+    "crpg": ["computer role-playing game", "computer rpg"],
+    "4x": ["explore expand exploit exterminate"],
+    "roguelike": ["rogue-like"],
+    "roguelite": ["rogue-lite"],
+    "metroidvania": ["metroid-vania"],
+    "beat em up": ["beat-em-up", "brawler"],
+    "shmup": ["shoot em up", "shoot-em-up"],
+    "sim": ["simulator", "simulation"],
+    "platformer": ["platform"]
+  },
+  "typoTolerance": {
+    "enabled": true,
+    "minWordSizeForTypos": {
+      "oneTypo": 4,
+      "twoTypos": 8
+    },
+    "disableOnAttributes": ["genres", "themes", "modes", "applicationType"]
+  },
+  "embedders": {
+    "game-similarity": {
+      "source": "openAi",
+      "model": "text-embedding-3-small",
+      "apiKey": "{{ meilisearch_openai_api_key }}",
+      "documentTemplate": "{% raw %}{% for field in fields %}{% if field.name == 'name' %}A video game called '{{ field.value }}'.{% endif %}{% endfor %}\n{% for field in fields %}{% if field.name == 'genres' %}Genres: {% for g in field.value %}{{ g }}{% unless forloop.last %}, {% endunless %}{% endfor %}.{% endif %}{% endfor %}\n{% for field in fields %}{% if field.name == 'themes' %}Themes: {% for t in field.value %}{{ t }}{% unless forloop.last %}, {% endunless %}{% endfor %}.{% endif %}{% endfor %}\n{% for field in fields %}{% if field.name == 'ageRatingDescriptions' %}{{ field.value }}{% endif %}{% endfor %}\n{% for field in fields %}{% if field.name == 'releaseDecade' %}Released {{ field.value }}.{% endif %}{% endfor %}\n{% for field in fields %}{% if field.name == 'summary' %}{{ field.value }}{% endif %}{% endfor %}\n{% for field in fields %}{% if field.name == 'keywords' %}Keywords: {% for k in field.value %}{{ k }}{% unless forloop.last %}, {% endunless %}{% endfor %}.{% endif %}{% endfor %}\n{% for field in fields %}{% if field.name == 'storyline' %}{{ field.value }}{% endif %}{% endfor %}{% endraw %}"
+    }
+  }
+}

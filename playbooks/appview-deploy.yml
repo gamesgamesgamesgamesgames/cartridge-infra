@@ -40,7 +40,7 @@
         chdir: "{{ happyview_data_dir }}"
 
     - name: Restart stack
-      command: docker compose up -d --remove-orphans
+      command: docker compose up -d --pull always --remove-orphans
       args:
         chdir: "{{ happyview_data_dir }}"
 

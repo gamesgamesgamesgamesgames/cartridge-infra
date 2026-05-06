@@ -34,6 +34,11 @@
         dest: "{{ happyview_data_dir }}/pg-backup.sh"
         mode: "0755"
 
+    - name: Reload Caddy config
+      command: docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+      register: caddy_reload
+      failed_when: caddy_reload.rc != 0 and 'is not running' not in caddy_reload.stderr
+
     - name: Pull latest images
       command: docker compose pull
       args:

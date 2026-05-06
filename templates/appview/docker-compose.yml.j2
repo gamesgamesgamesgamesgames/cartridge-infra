@@ -24,6 +24,13 @@ services:
       postgres:
         condition: service_healthy
 
+  docs:
+    container_name: docs
+    image: "{{ docs_image }}:{{ docs_image_tag }}"
+    restart: unless-stopped
+    env_file:
+      - "{{ happyview_data_dir }}/docs.env"
+
   postgres:
     container_name: postgres
     image: postgres:17

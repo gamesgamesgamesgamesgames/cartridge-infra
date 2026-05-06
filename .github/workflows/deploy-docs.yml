@@ -1,17 +1,14 @@
-name: Deploy appview
+name: Deploy docs
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "roles/base/**"
-      - "templates/appview/**"
-      - "playbooks/appview*.yml"
-      - "ansible.cfg"
-      - ".github/workflows/deploy-appview.yml"
   repository_dispatch:
-    types: [deploy]
+    types: [deploy-docs]
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Docs image tag to deploy"
+        required: false
+        default: "latest"
 
 concurrency:
   group: deploy-appview
@@ -19,7 +16,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy to Hetzner
+    name: Deploy docs to Hetzner
     runs-on: depot-ubuntu-latest
     steps:
       - name: Checkout
@@ -57,7 +54,7 @@ jobs:
             -e "happyview_hostname=gamesgamesgamesgames.games" \
             -e "cartridge_api_hostname=api.cartridge.dev" \
             -e "happyview_image=ghcr.io/gamesgamesgamesgamesgames/happyview" \
-            -e "happyview_image_tag=${{ github.event.client_payload.image_tag || '2.4.0' }}" \
+            -e "happyview_image_tag=${{ github.event.client_payload.happyview_tag || '2.3.1' }}" \
             -e "happyview_data_dir=/opt/happyview" \
             -e "postgres_db=happyview" \
             -e "postgres_user=happyview" \
@@ -73,7 +70,7 @@ jobs:
             -e "pg_backup_dir=/opt/happyview/backups" \
             -e "pg_backup_retention_days=7" \
             -e "docs_image=ghcr.io/gamesgamesgamesgamesgames/docs" \
-            -e "docs_image_tag=latest" \
+            -e "docs_image_tag=${{ github.event.client_payload.image_tag || inputs.image_tag || 'latest' }}" \
             -e "docs_client_key=$DOCS_CLIENT_KEY"
 
       - name: Cleanup SSH key

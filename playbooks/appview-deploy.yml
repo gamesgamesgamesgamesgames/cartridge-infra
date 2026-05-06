@@ -22,6 +22,12 @@
         dest: "{{ happyview_data_dir }}/happyview.env"
         mode: "0600"
 
+    - name: Deploy docs.env
+      template:
+        src: ../templates/appview/docs.env.j2
+        dest: "{{ happyview_data_dir }}/docs.env"
+        mode: "0644"
+
     - name: Deploy backup script
       template:
         src: ../templates/appview/pg-backup.sh.j2

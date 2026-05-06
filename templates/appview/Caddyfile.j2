@@ -1,5 +1,19 @@
 {{ happyview_hostname }} {
-    reverse_proxy happyview:3000
+    @happyview {
+        path /xrpc/*
+        path /admin/*
+        path /oauth/*
+    }
+    handle @happyview {
+        reverse_proxy happyview:3000
+    }
+    handle_path /hv/* {
+        reverse_proxy happyview:3000
+    }
+
+    handle {
+        reverse_proxy docs:3001
+    }
 }
 
 {{ cartridge_api_hostname }} {

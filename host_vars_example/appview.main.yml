@@ -22,3 +22,8 @@ happyview_event_log_retention_days: 30
 # --- Backup ---
 pg_backup_dir: /opt/happyview/backups
 pg_backup_retention_days: 7
+
+# --- Docs site ---
+docs_image: ghcr.io/gamesgamesgamesgamesgames/docs
+docs_image_tag: "1.0.0"
+docs_client_key: ""       # hvc_… client key for the docs site's API client

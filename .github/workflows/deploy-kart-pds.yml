@@ -54,6 +54,11 @@ jobs:
           KART_PDS_CLOUDFLARE_API_TOKEN: ${{ secrets.KART_PDS_CLOUDFLARE_API_TOKEN }}
           KART_PDS_DISCORD_BOT_TOKEN: ${{ secrets.KART_PDS_DISCORD_BOT_TOKEN }}
           KART_PDS_GHCR_TOKEN: ${{ secrets.KART_PDS_GHCR_TOKEN }}
+          KART_PDS_EMAIL_FROM_ADDRESS: ${{ secrets.KART_PDS_EMAIL_FROM_ADDRESS }}
+          KART_PDS_SMTP_HOST: ${{ secrets.KART_PDS_SMTP_HOST }}
+          KART_PDS_SMTP_PORT: ${{ secrets.KART_PDS_SMTP_PORT }}
+          KART_PDS_SMTP_USERNAME: ${{ secrets.KART_PDS_SMTP_USERNAME }}
+          KART_PDS_SMTP_PASSWORD: ${{ secrets.KART_PDS_SMTP_PASSWORD }}
         run: |
           ansible-playbook playbooks/kart-pds.yml \
             -i inventory.yml \
@@ -73,7 +78,12 @@ jobs:
             -e "kart_pds_master_key=$KART_PDS_MASTER_KEY" \
             -e "kart_pds_cloudflare_api_token=$KART_PDS_CLOUDFLARE_API_TOKEN" \
             -e "kart_pds_ghcr_token=$KART_PDS_GHCR_TOKEN" \
-            -e "kart_pds_discord_bot_token=$KART_PDS_DISCORD_BOT_TOKEN"
+            -e "kart_pds_discord_bot_token=$KART_PDS_DISCORD_BOT_TOKEN" \
+            -e "kart_pds_email_from_address=$KART_PDS_EMAIL_FROM_ADDRESS" \
+            -e "kart_pds_smtp_host=$KART_PDS_SMTP_HOST" \
+            -e "kart_pds_smtp_port=$KART_PDS_SMTP_PORT" \
+            -e "kart_pds_smtp_username=$KART_PDS_SMTP_USERNAME" \
+            -e "kart_pds_smtp_password=$KART_PDS_SMTP_PASSWORD"
 
       - name: Cleanup SSH key
         if: always()

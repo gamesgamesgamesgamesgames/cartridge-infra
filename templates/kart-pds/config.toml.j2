@@ -20,3 +20,14 @@ repo_backend = "postgres"
 # DATABASE_URL env var overrides this; see tranquil-pds.env.
 max_connections = 20
 min_connections = 2
+
+[email]
+from_address = "{{ kart_pds_email_from_address }}"
+from_name = "Cartridge"
+
+[email.smarthost]
+host = "{{ kart_pds_smtp_host }}"
+port = {{ kart_pds_smtp_port }}
+username = "{{ kart_pds_smtp_username }}"
+password = "{{ kart_pds_smtp_password }}"
+tls = "starttls"

@@ -104,7 +104,7 @@
           Authorization: "Bearer {{ meilisearch_master_key }}"
           Content-Type: "application/json"
         body_format: json
-        body: "{{ lookup('file', meilisearch_data_dir + '/index-settings.json') }}"
+        body: "{{ lookup('template', '../templates/meilisearch/index-settings.json.j2') }}"
         status_code: [200, 202]
       register: settings_result
 

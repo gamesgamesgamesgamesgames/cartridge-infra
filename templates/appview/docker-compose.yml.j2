@@ -18,6 +18,8 @@ services:
     restart: unless-stopped
     env_file:
       - "{{ happyview_data_dir }}/happyview.env"
+    environment:
+      BASE_PATH: "{{ happyview_base_path | default('') }}"
     volumes:
       - "{{ happyview_data_dir }}/plugins:/app/plugins"
     depends_on:

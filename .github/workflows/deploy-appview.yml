@@ -57,7 +57,7 @@ jobs:
             -e "happyview_hostname=gamesgamesgamesgames.games" \
             -e "cartridge_api_hostname=api.cartridge.dev" \
             -e "happyview_image=ghcr.io/gamesgamesgamesgamesgames/happyview" \
-            -e "happyview_image_tag=${{ github.event.client_payload.image_tag || '2.5.0' }}" \
+            -e "happyview_image_tag=${{ github.event.client_payload.image_tag || '2.6.0-dev.1' }}" \
             -e "happyview_data_dir=/opt/happyview" \
             -e "postgres_db=happyview" \
             -e "postgres_user=happyview" \
@@ -74,7 +74,8 @@ jobs:
             -e "pg_backup_retention_days=7" \
             -e "docs_image=ghcr.io/gamesgamesgamesgamesgames/docs" \
             -e "docs_image_tag=latest" \
-            -e "docs_client_key=$DOCS_CLIENT_KEY"
+            -e "docs_client_key=$DOCS_CLIENT_KEY" \
+            -e "happyview_base_path=/hv"
 
       - name: Cleanup SSH key
         if: always()

@@ -12,6 +12,10 @@
         rewrite * {{ happyview_base_path | default('/hv') }}{uri}
         reverse_proxy happyview:3000
     }
+    handle /oauth/* {
+        rewrite * {{ happyview_base_path | default('/hv') }}{uri}
+        reverse_proxy happyview:3000
+    }
 
     handle {
         reverse_proxy docs:3001

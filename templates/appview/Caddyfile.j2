@@ -2,11 +2,14 @@
     handle {{ happyview_base_path | default('/hv') }} {
         redir {{ happyview_base_path | default('/hv') }}/ permanent
     }
+    handle {{ happyview_base_path | default('/hv') }}/ {
+        reverse_proxy happyview:3000
+    }
     handle {{ happyview_base_path | default('/hv') }}/* {
         reverse_proxy happyview:3000
     }
     handle /xrpc/* {
-        uri prefix {{ happyview_base_path | default('/hv') }}
+        rewrite * {{ happyview_base_path | default('/hv') }}{uri}
         reverse_proxy happyview:3000
     }
 

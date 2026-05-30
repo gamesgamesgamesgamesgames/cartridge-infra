@@ -3,7 +3,7 @@
 # --- HappyView ---
 happyview_hostname: gamesgamesgamesgames.games
 happyview_image: ghcr.io/gamesgamesgamesgamesgames/happyview
-happyview_image_tag: "2.0.0-dev.30"  # Latest release tag; updated via repository_dispatch
+happyview_image_tag: "2.9.2" # Latest release tag; updated via repository_dispatch
 happyview_data_dir: /opt/happyview
 
 # --- Postgres ---
@@ -26,4 +26,4 @@ pg_backup_retention_days: 7
 # --- Docs site ---
 docs_image: ghcr.io/gamesgamesgamesgamesgames/docs
 docs_image_tag: "1.0.0"
-docs_client_key: ""       # hvc_… client key for the docs site's API client
+docs_client_key: "" # hvc_… client key for the docs site's API client

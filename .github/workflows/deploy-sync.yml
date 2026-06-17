@@ -54,6 +54,8 @@ jobs:
           ATPROTO_PASSWORD: ${{ secrets.SYNC_ATPROTO_PASSWORD }}
           HAPPYVIEW_URL: ${{ secrets.SYNC_HAPPYVIEW_URL }}
           HAPPYVIEW_API_KEY: ${{ secrets.SYNC_HAPPYVIEW_API_KEY }}
+          IGDB_ATPROTO_IDENTIFIER: ${{ secrets.SYNC_IGDB_ATPROTO_IDENTIFIER }}
+          IGDB_ATPROTO_PASSWORD: ${{ secrets.SYNC_IGDB_ATPROTO_PASSWORD }}
           POSTGRES_PASSWORD: ${{ secrets.APPVIEW_POSTGRES_PASSWORD }}
         run: |
           ansible-playbook playbooks/sync.yml \
@@ -64,6 +66,8 @@ jobs:
             -e "atproto_password=$ATPROTO_PASSWORD" \
             -e "happyview_url=$HAPPYVIEW_URL" \
             -e "happyview_api_key=$HAPPYVIEW_API_KEY" \
+            -e "igdb_atproto_identifier=$IGDB_ATPROTO_IDENTIFIER" \
+            -e "igdb_atproto_password=$IGDB_ATPROTO_PASSWORD" \
             -e "postgres_user=happyview" \
             -e "postgres_password=$POSTGRES_PASSWORD" \
             -e "postgres_db=happyview"

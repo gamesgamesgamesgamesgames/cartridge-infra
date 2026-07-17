@@ -3,7 +3,7 @@
 # --- HappyView ---
 happyview_hostname: gamesgamesgamesgames.games
 happyview_image: ghcr.io/gamesgamesgamesgamesgames/happyview
-happyview_image_tag: "2.11.6" # Latest release tag; updated via repository_dispatch
+happyview_image_tag: "2.11.7" # Latest release tag; updated via repository_dispatch
 happyview_data_dir: /opt/happyview
 
 # --- Postgres ---

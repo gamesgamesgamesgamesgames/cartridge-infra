@@ -47,10 +47,22 @@
       args:
         chdir: "{{ meilisearch_data_dir }}"
 
+    # One-off tasks must use `docker compose run --rm` — never a bare `run`, and
+    # never `run` to start the server. A lingering one-off Meilisearch on the
+    # same meili-data volume races the LMDB lock and breaks the next recreate.
     - name: Start the stack
-      command: docker compose up -d
+      command: docker compose up -d --remove-orphans
       args:
         chdir: "{{ meilisearch_data_dir }}"
+
+    - name: Assert exactly one container on the Meili data volume
+      # Two Meilisearch processes on one LMDB volume contend for the data-dir
+      # lock and fail with "Resource temporarily unavailable (os error 11)" on
+      # recreate. Fail the deploy loudly instead of leaving a silent landmine.
+      command: docker ps --filter volume=meilisearch_meili-data -q
+      register: meili_ctrs
+      changed_when: false
+      failed_when: meili_ctrs.stdout_lines | length != 1
 
     - name: Prune old images
       command: docker image prune -f

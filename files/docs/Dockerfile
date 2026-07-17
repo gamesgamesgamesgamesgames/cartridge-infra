@@ -16,7 +16,7 @@ COPY --from=deps /app/packages/docs/node_modules ./packages/docs/node_modules
 COPY --from=deps /app/packages/design-system/node_modules ./packages/design-system/node_modules
 COPY packages/design-system ./packages/design-system
 COPY packages/docs ./packages/docs
-COPY lexicons ./lexicons
+COPY src/lexicons ./src/lexicons
 COPY tsconfig.base.json ./
 COPY package.json ./
 

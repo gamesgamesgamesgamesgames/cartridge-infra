@@ -10,6 +10,10 @@ on:
       - 'playbooks/kart-pds.yml'
       - 'ansible.cfg'
       - '.github/workflows/deploy-kart-pds.yml'
+  # Hourly poll for new tranquil-pds images, matching the Watchtower cadence
+  # used on the pds host. Runs are a no-op unless the image ID actually moved.
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 concurrency:

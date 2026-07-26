@@ -1,0 +1,15 @@
+<clickhouse>
+    <!-- config.d/network.xml — server-level network + memory overrides. -->
+
+    <!-- Listen on all interfaces *inside the container* so the shared
+         `cartridge_shared` network (appview Caddy + HappyView) and the
+         host-loopback publish (127.0.0.1:8123) can reach it. There is no
+         host-network exposure beyond that loopback publish — this setting does
+         not widen it. -->
+    <listen_host>0.0.0.0</listen_host>
+    <listen_try>1</listen_try>
+
+    <!-- Keep the server within the container memory limit
+         ({{ clickhouse_mem_limit }}); ClickHouse respects the cgroup limit. -->
+    <max_server_memory_usage_to_ram_ratio>0.9</max_server_memory_usage_to_ram_ratio>
+</clickhouse>

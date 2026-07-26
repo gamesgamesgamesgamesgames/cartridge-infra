@@ -1,0 +1,69 @@
+name: Deploy clickhouse
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "roles/base/**"
+      - "templates/clickhouse/**"
+      - "clickhouse/migrations/**"
+      - "playbooks/clickhouse.yml"
+      - "ansible.cfg"
+      - ".github/workflows/deploy-clickhouse.yml"
+  workflow_dispatch:
+    inputs:
+      migrate_only:
+        description: "Run only the migrations (skip the full stack redeploy)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-clickhouse
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy clickhouse stack (appview host)
+    runs-on: depot-ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Setup SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.APPVIEW_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.APPVIEW_SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Create inventory
+        run: |
+          printf 'all:\n  hosts:\n    clickhouse:\n      ansible_host: "%s"\n      ansible_ssh_private_key_file: ~/.ssh/deploy_key\n' \
+            "$SERVER_IP" > inventory.yml
+        env:
+          SERVER_IP: ${{ secrets.APPVIEW_SERVER_IP }}
+
+      - name: Run Ansible playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "false"
+          CLICKHOUSE_INGEST_PASSWORD: ${{ secrets.CLICKHOUSE_INGEST_PASSWORD }}
+          CLICKHOUSE_READONLY_PASSWORD: ${{ secrets.CLICKHOUSE_READONLY_PASSWORD }}
+          MIGRATE_ONLY: ${{ github.event.inputs.migrate_only }}
+        run: |
+          TAGS=""
+          if [ "$MIGRATE_ONLY" = "true" ]; then TAGS="--tags migrate"; fi
+          ansible-playbook playbooks/clickhouse.yml $TAGS \
+            -e "clickhouse_data_dir=/opt/clickhouse" \
+            -e "clickhouse_image_tag=25.3" \
+            -e "clickhouse_mem_limit=2g" \
+            -e "clickhouse_ingest_password=$CLICKHOUSE_INGEST_PASSWORD" \
+            -e "clickhouse_readonly_password=$CLICKHOUSE_READONLY_PASSWORD"
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

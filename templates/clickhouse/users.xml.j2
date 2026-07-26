@@ -1,0 +1,87 @@
+<clickhouse>
+    <!-- users.d/cartridge.xml — Cartridge analytics users, grants and quotas.
+
+         Network security is enforced by UFW (private read port open only from
+         the appview host) and by Caddy + passwords (public ingest), mirroring
+         the Meilisearch model. ClickHouse-level <networks> ACLs are left open
+         because Docker's userland proxy rewrites the client source IP, making
+         per-IP ACLs unreliable. -->
+
+    <profiles>
+        <default>
+            <load_balancing>random</load_balancing>
+            <use_uncompressed_cache>0</use_uncompressed_cache>
+        </default>
+
+        <!-- SELECT-only sessions; cannot mutate data or change settings. -->
+        <readonly>
+            <readonly>1</readonly>
+        </readonly>
+    </profiles>
+
+    <users>
+        <!-- Neutralise the stock passwordless `default` user: reachable only
+             from inside the container (docker exec / clickhouse-client), never
+             through the private net or the public Caddy vhost. -->
+        <default>
+            <password></password>
+            <networks replace="replace">
+                <ip>127.0.0.1</ip>
+                <ip>::1</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>default</quota>
+        </default>
+
+        <!-- Public ingest path (Cartridge collector on Vercel, via Caddy).
+             INSERT-only into the analytics database. -->
+        <ingest>
+            <password>{{ clickhouse_ingest_password }}</password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>default</profile>
+            <quota>ingest</quota>
+            <grants>
+                <query>GRANT INSERT ON cartridge_analytics.*</query>
+            </grants>
+        </ingest>
+
+        <!-- Read path (HappyView on the appview host, over the private net).
+             SELECT-only on the analytics database. -->
+        <readonly>
+            <password>{{ clickhouse_readonly_password }}</password>
+            <networks>
+                <ip>::/0</ip>
+            </networks>
+            <profile>readonly</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT SELECT ON cartridge_analytics.*</query>
+            </grants>
+        </readonly>
+    </users>
+
+    <quotas>
+        <default>
+            <interval>
+                <duration>3600</duration>
+                <queries>0</queries>
+                <errors>0</errors>
+                <result_rows>0</result_rows>
+                <read_rows>0</read_rows>
+                <execution_time>0</execution_time>
+            </interval>
+        </default>
+        <ingest>
+            <interval>
+                <duration>3600</duration>
+                <queries>0</queries>
+                <errors>0</errors>
+                <result_rows>0</result_rows>
+                <read_rows>0</read_rows>
+                <execution_time>0</execution_time>
+            </interval>
+        </ingest>
+    </quotas>
+</clickhouse>

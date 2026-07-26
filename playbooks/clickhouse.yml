@@ -1,0 +1,102 @@
+- name: Provision ClickHouse
+  hosts: clickhouse
+  roles:
+    - base
+  tasks:
+    - name: Ensure shared docker network exists
+      command: docker network create cartridge_shared
+      register: ch_network
+      changed_when: ch_network.rc == 0
+      failed_when: ch_network.rc != 0 and 'already exists' not in ch_network.stderr
+
+    - name: Create data and config directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ clickhouse_data_dir }}"
+        - "{{ clickhouse_data_dir }}/data"
+        - "{{ clickhouse_data_dir }}/config"
+        - "{{ clickhouse_data_dir }}/config/config.d"
+        - "{{ clickhouse_data_dir }}/config/users.d"
+
+    - name: Deploy docker-compose.yml
+      template:
+        src: ../templates/clickhouse/docker-compose.yml.j2
+        dest: "{{ clickhouse_data_dir }}/docker-compose.yml"
+        mode: "0644"
+      notify: restart clickhouse stack
+
+    - name: Deploy server network config
+      template:
+        src: ../templates/clickhouse/config.xml.j2
+        dest: "{{ clickhouse_data_dir }}/config/config.d/network.xml"
+        mode: "0644"
+      notify: restart clickhouse stack
+
+    - name: Deploy users, grants and profiles
+      template:
+        src: ../templates/clickhouse/users.xml.j2
+        dest: "{{ clickhouse_data_dir }}/config/users.d/cartridge.xml"
+        owner: "101"
+        group: "101"
+        mode: "0600"
+      notify: restart clickhouse stack
+
+    - name: Pull Docker images
+      command: docker compose pull
+      args:
+        chdir: "{{ clickhouse_data_dir }}"
+
+    - name: Start the stack
+      command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ clickhouse_data_dir }}"
+
+    - name: Prune old images
+      command: docker image prune -f
+
+    - name: Wait for ClickHouse to answer /ping
+      uri:
+        url: "http://127.0.0.1:8123/ping"
+        method: GET
+      register: ch_ping
+      until: ch_ping.status == 200
+      retries: 30
+      delay: 2
+      tags: [migrate]
+
+    - name: Ensure analytics database exists
+      command: >
+        docker exec clickhouse clickhouse-client
+        --query "CREATE DATABASE IF NOT EXISTS cartridge_analytics"
+      changed_when: false
+      tags: [migrate]
+
+    - name: Copy ClickHouse migrations to host
+      copy:
+        src: ../clickhouse/migrations/
+        dest: "{{ clickhouse_data_dir }}/migrations/"
+        mode: "0644"
+      tags: [migrate]
+
+    - name: Apply ClickHouse migrations
+      shell: |
+        set -euo pipefail
+        shopt -s failglob   # fail loudly if no migrations were copied
+        for f in "{{ clickhouse_data_dir }}"/migrations/*.sql; do
+          echo "== applying $(basename "$f") =="
+          sed -E 's/^-- statement-breakpoint[[:space:]]*$/;/' "$f" \
+            | docker exec -i clickhouse clickhouse-client --database cartridge_analytics --multiquery
+        done
+      args:
+        executable: /bin/bash
+      changed_when: false
+      tags: [migrate]
+
+  handlers:
+    - name: restart clickhouse stack
+      command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ clickhouse_data_dir }}"

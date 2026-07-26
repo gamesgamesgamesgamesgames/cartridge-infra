@@ -1,0 +1,14 @@
+{
+  "name": "cartridge-analytics-clickhouse",
+  "private": true,
+  "type": "module",
+  "description": "ClickHouse analytics schema + migrations for Cartridge. The deploy applies these via Ansible (see playbooks/clickhouse.yml); this package exists only to run the schema-correctness test suite locally. It is NOT part of the infra CI.",
+  "scripts": {
+    "test": "vitest run",
+    "migrate": "bun apply.ts"
+  },
+  "devDependencies": {
+    "@clickhouse/client": "^1.23.1",
+    "vitest": "^4.1.10"
+  }
+}

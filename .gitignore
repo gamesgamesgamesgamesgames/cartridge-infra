@@ -7,3 +7,9 @@ host_vars/
 
 # OS
 .DS_Store
+
+# ClickHouse test-harness deps (dev-only; deploys apply via Ansible)
+clickhouse/node_modules/
+clickhouse/bun.lock
+clickhouse/bun.lockb
+clickhouse/package-lock.json

@@ -25,3 +25,9 @@
 {{ cartridge_api_hostname }} {
     reverse_proxy happyview:3000
 }
+
+# Public analytics ingest. Only entry point to the colocated ClickHouse; the
+# INSERT-only `ingest` user's password gates writes.
+{{ clickhouse_ingest_domain | default('ch.kart.sh') }} {
+    reverse_proxy clickhouse:8123
+}

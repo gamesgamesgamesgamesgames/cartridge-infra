@@ -1,0 +1,30 @@
+services:
+  clickhouse:
+    container_name: clickhouse
+    image: "clickhouse/clickhouse-server:{{ clickhouse_image_tag }}"
+    restart: unless-stopped
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - "{{ clickhouse_data_dir }}/data:/var/lib/clickhouse"
+      - "{{ clickhouse_data_dir }}/config/config.d:/etc/clickhouse-server/config.d:ro"
+      - "{{ clickhouse_data_dir }}/config/users.d:/etc/clickhouse-server/users.d:ro"
+    expose:
+      - "8123"
+      - "9000"
+    ports:
+      - "127.0.0.1:8123:8123"
+    networks:
+      - cartridge_shared
+    deploy:
+      resources:
+        limits:
+          memory: "{{ clickhouse_mem_limit }}"
+        reservations:
+          memory: 512M
+
+networks:
+  cartridge_shared:
+    external: true

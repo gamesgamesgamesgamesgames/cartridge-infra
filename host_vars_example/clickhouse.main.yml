@@ -1,0 +1,6 @@
+# --- ClickHouse ---
+clickhouse_data_dir: /opt/clickhouse
+clickhouse_image_tag: "25.3"
+clickhouse_mem_limit: "2g"
+clickhouse_ingest_password: "{{ vault_clickhouse_ingest_password }}"
+clickhouse_readonly_password: "{{ vault_clickhouse_readonly_password }}"

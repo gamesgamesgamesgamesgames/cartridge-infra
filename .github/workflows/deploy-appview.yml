@@ -75,7 +75,8 @@ jobs:
             -e "docs_image=ghcr.io/gamesgamesgamesgamesgames/docs" \
             -e "docs_image_tag=latest" \
             -e "docs_client_key=$DOCS_CLIENT_KEY" \
-            -e "happyview_base_path=/hv"
+            -e "happyview_base_path=/hv" \
+            -e "clickhouse_ingest_domain=ch.kart.sh"
 
       - name: Cleanup SSH key
         if: always()

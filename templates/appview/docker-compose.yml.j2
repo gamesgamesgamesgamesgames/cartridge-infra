@@ -11,6 +11,9 @@ services:
       - caddy-data:/data
       - caddy-config:/config
       - "{{ happyview_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+    networks:
+      - default
+      - cartridge_shared
 
   happyview:
     container_name: happyview
@@ -25,6 +28,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - default
+      - cartridge_shared
 
   docs:
     container_name: docs
@@ -55,3 +61,7 @@ volumes:
   caddy-data:
   caddy-config:
   pgdata:
+
+networks:
+  cartridge_shared:
+    external: true

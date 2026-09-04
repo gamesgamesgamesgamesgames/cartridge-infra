@@ -4,7 +4,9 @@ Consolidated Ansible infrastructure for all atproto services:
 
 - **appview** — HappyView app server (gamesgamesgamesgames.games)
 - **pds** — Bluesky Personal Data Server + observability stack
-- **moderation** — Osprey moderation system
+- ~~**moderation** — Osprey moderation system~~ (retired 2026-09-01; the host
+  was repurposed for the HappyProto platform. The playbook and templates are
+  kept for reference but are no longer targeted by any inventory.)
 - **meilisearch** — Search index
 
 Replaces the separate `appview-infra`, `pds-infra`, `moderation-infra`, and

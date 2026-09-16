@@ -59,7 +59,7 @@ jobs:
             -e "pds_data_dir=/pds" \
             -e "pds_hostname=pds.gamesgamesgamesgames.games" \
             -e "pds_admin_email=admin@pds.gamesgamesgamesgames.games" \
-            -e "pds_image_tag=0.4" \
+            -e "pds_image_tag=0.4.5034" \
             -e "pds_blob_upload_limit=104857600" \
             -e "pds_blobstore_type=s3" \
             -e "pds_invite_required=true" \

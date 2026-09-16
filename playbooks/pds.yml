@@ -23,6 +23,16 @@
         mode: "0644"
       notify: restart pds
 
+    - name: Remove retired watchtower container
+      shell: |
+        if docker container inspect watchtower >/dev/null 2>&1; then
+          docker rm --force watchtower
+          docker image rm containrrr/watchtower:latest || true
+          echo removed
+        fi
+      register: watchtower_removal
+      changed_when: "'removed' in watchtower_removal.stdout"
+
     - name: Deploy pds.service
       template:
         src: ../templates/pds/pds.service.j2
@@ -46,11 +56,31 @@
         group: "{{ item.group }}"
         mode: "0755"
       loop:
-        - { path: "{{ pds_data_dir }}/loki-data", owner: "10001", group: "10001" }
-        - { path: "{{ pds_data_dir }}/grafana-data", owner: "472", group: "472" }
-        - { path: "{{ pds_data_dir }}/grafana/provisioning/dashboards", owner: "472", group: "472" }
-        - { path: "{{ pds_data_dir }}/grafana/provisioning/datasources", owner: "472", group: "472" }
-        - { path: "{{ pds_data_dir }}/prometheus-data", owner: "65534", group: "65534" }
+        - {
+            path: "{{ pds_data_dir }}/loki-data",
+            owner: "10001",
+            group: "10001",
+          }
+        - {
+            path: "{{ pds_data_dir }}/grafana-data",
+            owner: "472",
+            group: "472",
+          }
+        - {
+            path: "{{ pds_data_dir }}/grafana/provisioning/dashboards",
+            owner: "472",
+            group: "472",
+          }
+        - {
+            path: "{{ pds_data_dir }}/grafana/provisioning/datasources",
+            owner: "472",
+            group: "472",
+          }
+        - {
+            path: "{{ pds_data_dir }}/prometheus-data",
+            owner: "65534",
+            group: "65534",
+          }
 
     - name: Deploy Grafana datasources config
       template:

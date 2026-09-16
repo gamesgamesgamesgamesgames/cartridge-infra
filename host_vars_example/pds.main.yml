@@ -4,9 +4,9 @@
 pds_data_dir: /pds
 pds_hostname: pds.example.com
 pds_admin_email: admin@example.com
-pds_image_tag: "0.4"
+pds_image_tag: "0.4.5034"
 pds_blob_upload_limit: 104857600
-pds_blobstore_type: disk  # "disk" or "s3"
+pds_blobstore_type: disk # "disk" or "s3"
 pds_invite_required: true
 pds_rate_limits_enabled: true
 pds_jwt_secret: "{{ vault_pds_jwt_secret }}"

@@ -23,16 +23,3 @@ services:
       - type: bind
         source: {{ pds_data_dir }}/caddy/etc/caddy
         target: /etc/caddy
-
-  watchtower:
-    container_name: watchtower
-    image: containrrr/watchtower:latest
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-      - type: bind
-        source: /var/run/docker.sock
-        target: /var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=3600

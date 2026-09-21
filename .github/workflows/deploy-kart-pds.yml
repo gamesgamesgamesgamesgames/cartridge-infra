@@ -10,11 +10,16 @@ on:
       - 'playbooks/kart-pds.yml'
       - 'ansible.cfg'
       - '.github/workflows/deploy-kart-pds.yml'
-  # Hourly poll for new tranquil-pds images, matching the Watchtower cadence
-  # used on the pds host. Runs are a no-op unless the image ID actually moved.
-  schedule:
-    - cron: '0 * * * *'
+  # Also dispatched by build-tranquil-pds.yml after it publishes a new release.
   workflow_dispatch:
+    inputs:
+      tranquil_version:
+        description: "tranquil-pds image tag to deploy (e.g. 0.6.7). Defaults to latest."
+        required: false
+
+permissions:
+  contents: read
+  packages: read
 
 concurrency:
   group: deploy-kart-pds
@@ -57,8 +62,9 @@ jobs:
           KART_PDS_MASTER_KEY: ${{ secrets.KART_PDS_MASTER_KEY }}
           KART_PDS_CLOUDFLARE_API_TOKEN: ${{ secrets.KART_PDS_CLOUDFLARE_API_TOKEN }}
           KART_PDS_DISCORD_BOT_TOKEN: ${{ secrets.KART_PDS_DISCORD_BOT_TOKEN }}
-          ATCR_USERNAME: ${{ secrets.ATCR_USERNAME }}
-          ATCR_PASSWORD: ${{ secrets.ATCR_PASSWORD }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRANQUIL_VERSION: ${{ inputs.tranquil_version || 'latest' }}
           KART_PDS_EMAIL_FROM_ADDRESS: ${{ secrets.KART_PDS_EMAIL_FROM_ADDRESS }}
           KART_PDS_SMTP_HOST: ${{ secrets.KART_PDS_SMTP_HOST }}
           KART_PDS_SMTP_PORT: ${{ secrets.KART_PDS_SMTP_PORT }}
@@ -74,7 +80,7 @@ jobs:
             -e "kart_pds_handle_domain=kart.sh" \
             -e "kart_pds_contact_email=admin@kart.sh" \
             -e "kart_pds_blob_upload_limit=104857600" \
-            -e "kart_pds_image=atcr.io/tranquil.farm/tranquil-pds:latest" \
+            -e "kart_pds_image=ghcr.io/gamesgamesgamesgamesgames/tranquil-pds:$TRANQUIL_VERSION" \
             -e "kart_pds_caddy_image=ghcr.io/gamesgamesgamesgamesgames/caddy-cloudflare:2.10.0" \
             -e "kart_pds_postgres_image=postgres:18-alpine" \
             -e "kart_pds_postgres_password=$KART_PDS_POSTGRES_PASSWORD" \
@@ -82,8 +88,8 @@ jobs:
             -e "kart_pds_dpop_secret=$KART_PDS_DPOP_SECRET" \
             -e "kart_pds_master_key=$KART_PDS_MASTER_KEY" \
             -e "kart_pds_cloudflare_api_token=$KART_PDS_CLOUDFLARE_API_TOKEN" \
-            -e "kart_pds_atcr_username=$ATCR_USERNAME" \
-            -e "kart_pds_atcr_password=$ATCR_PASSWORD" \
+            -e "kart_pds_ghcr_username=$GHCR_USERNAME" \
+            -e "kart_pds_ghcr_password=$GHCR_TOKEN" \
             -e "kart_pds_discord_bot_token=$KART_PDS_DISCORD_BOT_TOKEN" \
             -e "kart_pds_email_from_address=$KART_PDS_EMAIL_FROM_ADDRESS" \
             -e "kart_pds_smtp_host=$KART_PDS_SMTP_HOST" \

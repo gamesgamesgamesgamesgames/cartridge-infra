@@ -18,12 +18,12 @@
         - "{{ kart_pds_data_dir }}/caddy/data"
         - "{{ kart_pds_data_dir }}/caddy/config"
 
-    - name: Log in to ATCR
+    - name: Log in to GHCR
       community.docker.docker_login:
-        registry_url: atcr.io
-        username: "{{ kart_pds_atcr_username }}"
-        password: "{{ kart_pds_atcr_password }}"
-      when: kart_pds_atcr_username is defined and kart_pds_atcr_username | length > 0
+        registry_url: ghcr.io
+        username: "{{ kart_pds_ghcr_username }}"
+        password: "{{ kart_pds_ghcr_password }}"
+      when: kart_pds_ghcr_password is defined and kart_pds_ghcr_password | length > 0
       no_log: true
 
     - name: Deploy docker-compose.yml

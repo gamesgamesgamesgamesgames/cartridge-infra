@@ -10,11 +10,11 @@ on:
       - 'playbooks/kart-pds.yml'
       - 'ansible.cfg'
       - '.github/workflows/deploy-kart-pds.yml'
-  # Also dispatched by build-tranquil-pds.yml after it publishes a new release.
+  # Also dispatched by build-tranquil-pds.yml after it publishes a new upstream main build.
   workflow_dispatch:
     inputs:
       tranquil_version:
-        description: "tranquil-pds image tag to deploy (e.g. 0.6.7). Defaults to latest."
+        description: "tranquil-pds image tag to deploy (an upstream commit SHA, or main). Defaults to main."
         required: false
 
 permissions:
@@ -64,7 +64,7 @@ jobs:
           KART_PDS_DISCORD_BOT_TOKEN: ${{ secrets.KART_PDS_DISCORD_BOT_TOKEN }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRANQUIL_VERSION: ${{ inputs.tranquil_version || 'latest' }}
+          TRANQUIL_VERSION: ${{ inputs.tranquil_version || 'main' }}
           KART_PDS_EMAIL_FROM_ADDRESS: ${{ secrets.KART_PDS_EMAIL_FROM_ADDRESS }}
           KART_PDS_SMTP_HOST: ${{ secrets.KART_PDS_SMTP_HOST }}
           KART_PDS_SMTP_PORT: ${{ secrets.KART_PDS_SMTP_PORT }}

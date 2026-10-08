@@ -1,14 +1,14 @@
 name: Build tranquil-pds image
 
 on:
-  # Hourly poll for new upstream release tags. Runs are a no-op unless a tag
-  # appears that we haven't built yet.
+  # Hourly poll for new commits on upstream main. Runs are a no-op unless
+  # main has moved to a commit we haven't built yet.
   schedule:
     - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
-      version:
-        description: "Tranquil version to build (e.g. 0.6.7). Defaults to the latest upstream release."
+      ref:
+        description: "Upstream git ref to build (branch, tag, or full commit SHA). Defaults to main."
         required: false
       force:
         description: "Rebuild even if the image already exists"
@@ -44,41 +44,46 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Resolve version
+      - name: Resolve commit
         id: ver
         env:
-          VERSION_INPUT: ${{ github.event.inputs.version }}
+          REF_INPUT: ${{ github.event.inputs.ref }}
         run: |
-          LATEST=$(git ls-remote --tags --refs "$UPSTREAM_REPO" \
-            | awk '{print $2}' \
-            | sed 's#^refs/tags/v##' \
-            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
-            | sort -V \
-            | tail -n1)
-          if [ -z "$LATEST" ]; then
-            echo "::error::Could not determine latest upstream release tag"
+          MAIN_SHA=$(git ls-remote "$UPSTREAM_REPO" refs/heads/main | awk '{print $1}')
+          if [ -z "$MAIN_SHA" ]; then
+            echo "::error::Could not resolve upstream main"
             exit 1
           fi
-          VER="${VERSION_INPUT#v}"
-          VER="${VER:-$LATEST}"
-          echo "version=$VER" >> "$GITHUB_OUTPUT"
-          # Only move :latest (and deploy) when building the newest release,
-          # so a manual rebuild of an older version can't downgrade kart-pds.
-          if [ "$VER" = "$LATEST" ]; then
-            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+          REF="${REF_INPUT:-main}"
+          if echo "$REF" | grep -Eq '^[0-9a-f]{40}$'; then
+            SHA="$REF"
           else
-            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            # Peeled tag (^{}) sorts after the tag object, so tail picks the commit.
+            SHA=$(git ls-remote "$UPSTREAM_REPO" "refs/heads/$REF" "refs/tags/$REF" "refs/tags/$REF^{}" \
+              | tail -n1 | awk '{print $1}')
           fi
-          echo "Latest upstream release: $LATEST; building: $VER"
+          if [ -z "$SHA" ]; then
+            echo "::error::Could not resolve upstream ref '$REF'"
+            exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          # Only move :main (and deploy) when building upstream main's head,
+          # so a manual build of another ref can't replace what kart-pds runs.
+          if [ "$SHA" = "$MAIN_SHA" ]; then
+            echo "is_main=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_main=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Upstream main: $MAIN_SHA; building $REF at $SHA"
 
       - name: Check for existing image
         id: check
         env:
-          VER: ${{ steps.ver.outputs.version }}
+          SHA: ${{ steps.ver.outputs.sha }}
           FORCE: ${{ github.event.inputs.force }}
         run: |
-          if [ "$FORCE" != "true" ] && docker buildx imagetools inspect "$IMAGE:$VER" >/dev/null 2>&1; then
-            echo "$IMAGE:$VER already exists; nothing to do."
+          if [ "$FORCE" != "true" ] && docker buildx imagetools inspect "$IMAGE:$SHA" >/dev/null 2>&1; then
+            echo "$IMAGE:$SHA already exists; nothing to do."
             echo "build=false" >> "$GITHUB_OUTPUT"
           else
             echo "build=true" >> "$GITHUB_OUTPUT"
@@ -92,22 +97,22 @@ jobs:
         if: steps.check.outputs.build == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.UPSTREAM_REPO }}#v${{ steps.ver.outputs.version }}
+          context: ${{ env.UPSTREAM_REPO }}#${{ steps.ver.outputs.sha }}
           platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.IMAGE }}:${{ steps.ver.outputs.version }}
-            ${{ steps.ver.outputs.is_latest == 'true' && format('{0}:latest', env.IMAGE) || '' }}
+            ${{ env.IMAGE }}:${{ steps.ver.outputs.sha }}
+            ${{ steps.ver.outputs.is_main == 'true' && format('{0}:main', env.IMAGE) || '' }}
           labels: |
             org.opencontainers.image.title=tranquil-pds
-            org.opencontainers.image.version=${{ steps.ver.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.ver.outputs.sha }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.url=https://tangled.org/tranquil.farm/tranquil-pds
 
       - name: Trigger kart-pds deploy
-        if: steps.check.outputs.build == 'true' && steps.ver.outputs.is_latest == 'true'
+        if: steps.check.outputs.build == 'true' && steps.ver.outputs.is_main == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          VER: ${{ steps.ver.outputs.version }}
-        run: gh workflow run deploy-kart-pds.yml --ref main -f tranquil_version="$VER"
+          SHA: ${{ steps.ver.outputs.sha }}
+        run: gh workflow run deploy-kart-pds.yml --ref main -f tranquil_version="$SHA"

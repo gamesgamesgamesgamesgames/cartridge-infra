@@ -67,10 +67,10 @@ jobs:
             -e "happyview_token_encryption_key=$TOKEN_ENCRYPTION_KEY" \
             -e "happyview_relay_url=https://bsky.network" \
             -e "happyview_jetstream_url=wss://jetstream1.us-east.bsky.network" \
-            -e "happyview_event_log_retention_days=30" \
+            -e "happyview_event_log_retention_days=7" \
             -e "happyview_meilisearch_url=http://10.0.0.3:7700" \
             -e "happyview_meilisearch_api_key=$MEILISEARCH_API_KEY" \
-            -e "pg_backup_dir=/opt/happyview/backups" \
+            -e "pg_backup_dir=/mnt/HC_Volume_105990121" \
             -e "pg_backup_retention_days=7" \
             -e "docs_image=ghcr.io/gamesgamesgamesgamesgames/docs" \
             -e "docs_image_tag=latest" \

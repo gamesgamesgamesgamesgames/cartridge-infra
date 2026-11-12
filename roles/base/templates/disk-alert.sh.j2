@@ -20,8 +20,9 @@ post() {
   # Messages are built only from the hostname, mount points, numbers and the
   # check names in this file, none of which contain quotes or backslashes.
   curl -fsS -m 10 -H 'Content-Type: application/json' \
-    -d "{\"content\": \"$1\"}" "$WEBHOOK_URL" >/dev/null \
-    || echo "disk-alert: failed to post to webhook" >&2
+    -d "{\"content\": \"$1\"}" "$WEBHOOK_URL" >/dev/null && return 0
+  echo "disk-alert: failed to post to webhook" >&2
+  return 1
 }
 
 # raise KEY MESSAGE: send MESSAGE unless KEY was sent within REPEAT_SECONDS.
@@ -30,16 +31,15 @@ raise() {
   if [[ -f "$file" ]] && (( NOW - $(cat "$file") < REPEAT_SECONDS )); then
     return
   fi
-  post "$msg"
-  echo "$NOW" > "$file"
+  # Record the alert only once it was delivered, so a failed post retries.
+  post "$msg" && echo "$NOW" > "$file"
 }
 
 # clear KEY MESSAGE: send MESSAGE once if KEY was previously raised.
 clear_alert() {
   local key="$1" msg="$2" file="$STATE_DIR/$1"
   if [[ -f "$file" ]]; then
-    post "$msg"
-    rm -f "$file"
+    post "$msg" && rm -f "$file"
   fi
 }
 

@@ -3,20 +3,39 @@ set -euo pipefail
 
 BACKUP_DIR="{{ pg_backup_dir }}"
 RETENTION_DAYS="{{ pg_backup_retention_days }}"
+# A dump smaller than this is treated as a failure, never published.
+MIN_BYTES="{{ pg_backup_min_bytes | default(1048576) | int }}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/happyview_${TIMESTAMP}.sql.gz"
+TMP_FILE="${BACKUP_FILE}.tmp"
 
 # Fail loudly rather than create the directory: a mistyped pg_backup_dir would
-# otherwise write dumps onto the root disk. The playbooks create the real one.
+# otherwise write dumps onto the root disk. The playbooks check that the real
+# directory is a mounted volume.
 if [[ ! -d "${BACKUP_DIR}" ]]; then
   echo "pg-backup: backup directory ${BACKUP_DIR} does not exist; check pg_backup_dir" >&2
   exit 1
 fi
 
-# Dump via the running postgres container
-docker exec postgres pg_dump -U {{ postgres_user }} {{ postgres_db }} | gzip > "${BACKUP_FILE}"
+# Write to a temporary name and publish it only once it is complete, so a
+# failed or truncated dump never looks like a fresh backup.
+trap 'rm -f "${TMP_FILE}"' EXIT
 
-# Remove backups older than retention period
-find "${BACKUP_DIR}" -name "happyview_*.sql.gz" -mtime +${RETENTION_DAYS} -delete
+docker exec postgres pg_dump -U {{ postgres_user }} {{ postgres_db }} | gzip > "${TMP_FILE}"
 
-echo "Backup complete: ${BACKUP_FILE}"
+size=$(stat -c %s "${TMP_FILE}")
+if (( size < MIN_BYTES )); then
+  echo "pg-backup: dump is only ${size} bytes (minimum ${MIN_BYTES}); not publishing it" >&2
+  exit 1
+fi
+gzip -t "${TMP_FILE}"
+
+mv "${TMP_FILE}" "${BACKUP_FILE}"
+trap - EXIT
+
+# Remove backups older than the retention period, and temporary files a crash
+# left behind.
+find "${BACKUP_DIR}" -maxdepth 1 -type f -name "happyview_*.sql.gz" -mtime +"${RETENTION_DAYS}" -delete
+find "${BACKUP_DIR}" -maxdepth 1 -type f -name "happyview_*.sql.gz.tmp" -mmin +1440 -delete
+
+echo "Backup complete: ${BACKUP_FILE} (${size} bytes)"

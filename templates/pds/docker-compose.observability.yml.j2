@@ -1,14 +1,5 @@
-# Rotate every container's json-file log so no single container can fill the
-# disk (the appview's HappyView log reached 32 GB in Nov 2026).
-x-logging: &default-logging
-  driver: json-file
-  options:
-    max-size: "{{ docker_log_max_size | default('50m') }}"
-    max-file: "{{ docker_log_max_file | default('5') }}"
-
 services:
   loki:
-    logging: *default-logging
     image: grafana/loki:3.4
     container_name: loki
     network_mode: host
@@ -20,7 +11,6 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
 
   promtail:
-    logging: *default-logging
     image: grafana/promtail:3.4
     container_name: promtail
     network_mode: host
@@ -36,7 +26,6 @@ services:
       - loki
 
   prometheus:
-    logging: *default-logging
     image: prom/prometheus:v3.2.1
     container_name: prometheus
     network_mode: host
@@ -52,7 +41,6 @@ services:
       - --web.listen-address=127.0.0.1:{{ prometheus_port }}
 
   alertmanager:
-    logging: *default-logging
     image: prom/alertmanager:v0.28.1
     container_name: alertmanager
     network_mode: host
@@ -67,7 +55,6 @@ services:
       - prometheus
 
   grafana:
-    logging: *default-logging
     image: grafana/grafana:11.5.2
     container_name: grafana
     network_mode: host

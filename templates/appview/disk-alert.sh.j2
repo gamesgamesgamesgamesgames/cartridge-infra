@@ -1,0 +1,98 @@
+#!/bin/bash
+# Managed by Ansible (cartridge-infra, playbooks/appview-host-tasks.yml).
+#
+# Posts to Discord when a real filesystem passes {{ disk_alert_threshold_percent | default(85) }}% used, or when a
+# tracked file (the newest Postgres backup) is missing or stale. A repeated
+# problem is re-sent at most every REPEAT_SECONDS; a cleared problem sends one
+# "resolved" message. If the check itself breaks, it says so and exits non-zero.
+set -uo pipefail
+
+WEBHOOK_URL="{{ disk_alert_webhook_url }}"
+THRESHOLD={{ disk_alert_threshold_percent | default(85) | int }}
+REPEAT_SECONDS=14400
+STATE_DIR=/var/lib/disk-alert
+HOST="$(hostname)"
+NOW="$(date +%s)"
+STATUS=0
+
+mkdir -p "$STATE_DIR"
+
+post() {
+  # Messages are built only from the hostname, mount points, numbers and the
+  # check names in this file, none of which contain quotes or backslashes.
+  # The URL goes through curl's config on stdin so it never appears in argv.
+  printf 'url = "%s"\n' "$WEBHOOK_URL" \
+    | curl -fsS -m 10 -K - -H 'Content-Type: application/json' \
+        -d "{\"content\": \"$1\"}" >/dev/null && return 0
+  echo "disk-alert: failed to post to webhook" >&2
+  return 1
+}
+
+# raise KEY MESSAGE: send MESSAGE unless KEY was sent within REPEAT_SECONDS.
+raise() {
+  local msg="$2" file="$STATE_DIR/$1" last=0
+  if [[ -f "$file" ]]; then
+    last="$(cat "$file" 2>/dev/null)"
+    [[ "$last" =~ ^[0-9]+$ ]] || last=0
+  fi
+  if (( NOW - last < REPEAT_SECONDS )); then
+    return
+  fi
+  # Record the alert only once it was delivered, so a failed post retries.
+  post "$msg" && echo "$NOW" > "$file"
+}
+
+# clear_alert KEY MESSAGE: send MESSAGE once if KEY was previously raised.
+clear_alert() {
+  local msg="$2" file="$STATE_DIR/$1"
+  if [[ -f "$file" ]]; then
+    post "$msg" && rm -f "$file"
+  fi
+}
+
+# --- Filesystems ---
+if ! df_out="$(df -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs --output=pcent,target 2>&1)"; then
+  echo "disk-alert: df failed: $df_out" >&2
+  raise check_failed ":warning: **${HOST}**: the disk alert check could not run df."
+  exit 1
+fi
+clear_alert check_failed ":white_check_mark: **${HOST}**: the disk alert check runs again."
+
+while read -r used mount; do
+  pct="${used%\%}"
+  if ! [[ "$pct" =~ ^[0-9]+$ ]]; then
+    echo "disk-alert: unexpected df line: $used $mount" >&2
+    STATUS=1
+    continue
+  fi
+  key="disk_$(echo "$mount" | tr '/' '_')"
+  if (( pct >= THRESHOLD )); then
+    raise "$key" ":rotating_light: **${HOST}**: \`${mount}\` is ${pct}% full (threshold ${THRESHOLD}%)."
+  else
+    clear_alert "$key" ":white_check_mark: **${HOST}**: \`${mount}\` is back to ${pct}%."
+  fi
+done < <(printf '%s\n' "$df_out" | tail -n +2)
+
+# --- File freshness ---
+check_fresh() {
+  local name="$1" glob="$2" max_hours="$3" newest age_h
+  local key="fresh_${name}"
+  # shellcheck disable=SC2086,SC2012 # the glob must expand; names are ours
+  newest="$(ls -1t $glob 2>/dev/null | head -1)"
+  if [[ -z "$newest" ]]; then
+    raise "$key" ":rotating_light: **${HOST}**: ${name}: no file matches \`${glob}\`."
+    return
+  fi
+  age_h=$(( (NOW - $(stat -c %Y "$newest")) / 3600 ))
+  if (( age_h > max_hours )); then
+    raise "$key" ":rotating_light: **${HOST}**: ${name}: newest file is ${age_h}h old (limit ${max_hours}h)."
+  else
+    clear_alert "$key" ":white_check_mark: **${HOST}**: ${name} is fresh again (${age_h}h old)."
+  fi
+}
+
+{% for check in disk_alert_freshness_checks | default([]) %}
+check_fresh "{{ check.name }}" "{{ check.glob }}" {{ check.max_age_hours | int }}
+{% endfor %}
+
+exit "$STATUS"

@@ -17,8 +17,11 @@ on:
         type: boolean
         default: false
 
+# Shares the appview workflows' group: ClickHouse runs on the appview host,
+# and this playbook's base role (apt, ufw, docker) must not run alongside
+# appview-deploy.yml there.
 concurrency:
-  group: deploy-clickhouse
+  group: deploy-appview
   cancel-in-progress: false
 
 jobs:
@@ -53,9 +56,6 @@ jobs:
           ANSIBLE_HOST_KEY_CHECKING: "false"
           CLICKHOUSE_INGEST_PASSWORD: ${{ secrets.CLICKHOUSE_INGEST_PASSWORD }}
           CLICKHOUSE_READONLY_PASSWORD: ${{ secrets.CLICKHOUSE_READONLY_PASSWORD }}
-          # The base role's disk alert for the appview host, which this
-          # workflow provisions. Leave the secret unset to keep the alert off.
-          DISK_ALERT_WEBHOOK_URL: ${{ secrets.APPVIEW_DISK_ALERT_WEBHOOK_URL }}
           MIGRATE_ONLY: ${{ github.event.inputs.migrate_only }}
         run: |
           TAGS=""
@@ -65,9 +65,7 @@ jobs:
             -e "clickhouse_image_tag=25.3" \
             -e "clickhouse_mem_limit=2g" \
             -e "clickhouse_ingest_password=$CLICKHOUSE_INGEST_PASSWORD" \
-            -e "clickhouse_readonly_password=$CLICKHOUSE_READONLY_PASSWORD" \
-            -e "disk_alert_webhook_url=$DISK_ALERT_WEBHOOK_URL" \
-            -e '{"disk_alert_freshness_checks":[{"name":"pg-backup","glob":"/mnt/HC_Volume_105990121/happyview_*.sql.gz","max_age_hours":26}]}'
+            -e "clickhouse_readonly_password=$CLICKHOUSE_READONLY_PASSWORD"
 
       - name: Cleanup SSH key
         if: always()

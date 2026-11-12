@@ -28,11 +28,8 @@
         dest: "{{ happyview_data_dir }}/docs.env"
         mode: "0644"
 
-    - name: Ensure the backup directory exists
-      file:
-        path: "{{ pg_backup_dir }}"
-        state: directory
-        mode: "0755"
+    - name: Host tasks (backup volume check, journald cap, disk alert)
+      include_tasks: appview-host-tasks.yml
 
     - name: Deploy backup script
       template:

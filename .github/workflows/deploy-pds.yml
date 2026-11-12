@@ -82,7 +82,6 @@ jobs:
             -e "alertmanager_port=9093" \
             -e "node_exporter_port=9100" \
             -e "discord_alert_webhook_url=$DISCORD_ALERT_WEBHOOK_URL" \
-            -e "disk_alert_webhook_url=$DISCORD_ALERT_WEBHOOK_URL" \
             -e "loki_retention_period=30d" \
             -e "pds_rate_limit_bypass_ips=$PDS_RATE_LIMIT_BYPASS_IPS"
 

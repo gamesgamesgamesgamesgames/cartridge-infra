@@ -85,6 +85,8 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.APPVIEW_POSTGRES_PASSWORD }}
           SESSION_SECRET: ${{ secrets.APPVIEW_SESSION_SECRET }}
           TOKEN_ENCRYPTION_KEY: ${{ secrets.APPVIEW_TOKEN_ENCRYPTION_KEY }}
+          # Disk and backup alert; leave the secret unset to keep it off.
+          DISK_ALERT_WEBHOOK_URL: ${{ secrets.APPVIEW_DISK_ALERT_WEBHOOK_URL }}
           MEILISEARCH_API_KEY: ${{ secrets.APPVIEW_MEILISEARCH_API_KEY }}
           DOCS_CLIENT_KEY: ${{ secrets.DOCS_CLIENT_KEY }}
         run: |
@@ -110,7 +112,8 @@ jobs:
             -e "docs_image=ghcr.io/gamesgamesgamesgamesgames/docs" \
             -e "docs_image_tag=latest" \
             -e "docs_client_key=$DOCS_CLIENT_KEY" \
-            -e "happyview_base_path=/hv"
+            -e "happyview_base_path=/hv" \
+            -e "disk_alert_webhook_url=$DISK_ALERT_WEBHOOK_URL"
 
       - name: Cleanup SSH key
         if: always()

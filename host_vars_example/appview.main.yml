@@ -25,15 +25,13 @@ happyview_event_log_retention_days: 7
 happyview_rust_log: "happyview=info,tower_http=info,sqlx=warn"
 
 # --- Backup ---
-pg_backup_dir: /opt/happyview/backups
+# Must be the mount point of the attached backup volume; the playbooks refuse
+# to run otherwise (pg_backup_require_mount: false turns the check off).
+pg_backup_dir: /mnt/HC_Volume_XXXXXXXXX
 pg_backup_retention_days: 7
 
-# --- Disk alert (base role) ---
+# --- Disk and backup alert (playbooks/appview-host-tasks.yml) ---
 disk_alert_webhook_url: "{{ vault_disk_alert_webhook_url }}"
-disk_alert_freshness_checks:
-  - name: pg-backup
-    glob: "{{ pg_backup_dir }}/happyview_*.sql.gz"
-    max_age_hours: 26
 
 # --- Docs site ---
 docs_image: ghcr.io/gamesgamesgamesgamesgames/docs

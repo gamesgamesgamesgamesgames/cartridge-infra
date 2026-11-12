@@ -93,19 +93,28 @@ ansible-playbook playbooks/site.yml
 
 ## Disk and log retention
 
-These settings keep logs from filling a host's disk:
+These settings keep logs and backups from filling the appview's disk:
 
-- **Container logs.** Every compose template shares an `x-logging` anchor:
-  the `json-file` driver, rotated at `docker_log_max_size` (50m) and kept for
-  `docker_log_max_file` (5) files. A changed compose file recreates its
-  containers on the next `docker compose up -d`, so the limits apply on the
-  next deploy without restarting the Docker daemon.
-- **journald.** The base role caps the journal at `journald_system_max_use`
-  (500M) and `journald_max_retention` (1 month).
+- **Container logs.** The appview and ClickHouse compose templates share an
+  `x-logging` anchor: the `json-file` driver, rotated at `docker_log_max_size`
+  (50m) and kept for `docker_log_max_file` (5) files. A changed compose file
+  recreates its containers on the next `docker compose up -d`, so the limits
+  apply on the next deploy without restarting the Docker daemon. The other
+  hosts' compose files don't have it yet.
+- **journald, disk alert and backup checks** for the appview live in
+  `playbooks/appview-host-tasks.yml`, which `appview.yml` and
+  `appview-deploy.yml` include. They aren't in `roles/base` because a change
+  there triggers every host's deploy workflow.
+  - journald is capped at `journald_system_max_use` (500M) and
+    `journald_max_retention` (1 month).
+  - Setting `disk_alert_webhook_url` (CI: the `APPVIEW_DISK_ALERT_WEBHOOK_URL`
+    secret) turns on a systemd timer. It posts to Discord when a filesystem
+    passes `disk_alert_threshold_percent` (85), or when the newest
+    `happyview_*.sql.gz` is older than `pg_backup_max_age_hours` (26).
+  - The play fails unless `pg_backup_dir` is a mount point. `pg-backup.sh`
+    publishes a dump only after it is complete, passes `gzip -t` and is at
+    least `pg_backup_min_bytes` (1 MiB).
 - **HappyView.** `RUST_LOG` defaults to `info`, since HappyView's own default
   is `debug`. `EVENT_LOG_RETENTION_DAYS` sets how long rows stay in
-  `happyview_event_logs`.
-- **Disk alert.** Set `disk_alert_webhook_url` on a host to turn on a systemd
-  timer that posts to Discord when a filesystem passes
-  `disk_alert_threshold_percent` (85). It can also watch file freshness
-  (`disk_alert_freshness_checks`), for example the newest Postgres backup.
+  `happyview_event_logs`. A value set in the dashboard
+  (`happyview_instance_settings`) overrides the env var.

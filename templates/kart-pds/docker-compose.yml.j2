@@ -1,15 +1,6 @@
 # Rendered by Ansible into {{ kart_pds_data_dir }}/docker-compose.yml
-# Rotate every container's json-file log so no single container can fill the
-# disk (the appview's HappyView log reached 32 GB in Nov 2026).
-x-logging: &default-logging
-  driver: json-file
-  options:
-    max-size: "{{ docker_log_max_size | default('50m') }}"
-    max-file: "{{ docker_log_max_file | default('5') }}"
-
 services:
   db:
-    logging: *default-logging
     image: {{ kart_pds_postgres_image }}
     restart: unless-stopped
     env_file:
@@ -29,7 +20,6 @@ services:
           memory: 128M
 
   tranquil-pds:
-    logging: *default-logging
     image: {{ kart_pds_image }}
     restart: unless-stopped
     depends_on:
@@ -50,7 +40,6 @@ services:
           memory: 256M
 
   caddy:
-    logging: *default-logging
     image: {{ kart_pds_caddy_image }}
     restart: unless-stopped
     depends_on:

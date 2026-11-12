@@ -1,11 +1,3 @@
-# Rotate every container's json-file log so no single container can fill the
-# disk (the appview's HappyView log reached 32 GB in Nov 2026).
-x-logging: &default-logging
-  driver: json-file
-  options:
-    max-size: "{{ docker_log_max_size | default('50m') }}"
-    max-file: "{{ docker_log_max_file | default('5') }}"
-
 volumes:
   metadata_data: {}
   middle_var: {}
@@ -20,7 +12,6 @@ volumes:
 
 services:
   caddy:
-    logging: *default-logging
     image: caddy:2
     container_name: caddy
     network_mode: host
@@ -31,7 +22,6 @@ services:
     restart: unless-stopped
 
   osprey-kafka:
-    logging: *default-logging
     image: {{ kafka_image }}
     hostname: osprey-kafka
     container_name: osprey-kafka
@@ -59,7 +49,6 @@ services:
     restart: unless-stopped
 
   osprey-kafka-topic-creator:
-    logging: *default-logging
     image: {{ kafka_image }}
     depends_on:
       osprey-kafka:
@@ -73,7 +62,6 @@ services:
     restart: "no"
 
   postgres:
-    logging: *default-logging
     image: {{ postgres_image }}
     hostname: postgres
     container_name: postgres
@@ -94,7 +82,6 @@ services:
     restart: unless-stopped
 
   minio:
-    logging: *default-logging
     image: {{ minio_image }}
     hostname: minio
     container_name: minio
@@ -115,7 +102,6 @@ services:
     restart: unless-stopped
 
   minio-bucket-init:
-    logging: *default-logging
     image: minio/mc:latest
     depends_on:
       minio:
@@ -126,7 +112,6 @@ services:
     restart: "no"
 
   snowflake-id-worker:
-    logging: *default-logging
     image: {{ snowflake_image }}
     hostname: snowflake-id-worker
     container_name: snowflake-id-worker
@@ -140,7 +125,6 @@ services:
     restart: unless-stopped
 
   bigtable:
-    logging: *default-logging
     hostname: bigtable
     container_name: bigtable
     image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
@@ -156,7 +140,6 @@ services:
     restart: unless-stopped
 
   bigtable-initializer:
-    logging: *default-logging
     image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
     depends_on:
       bigtable:
@@ -167,7 +150,6 @@ services:
     restart: "no"
 
   osprey-worker:
-    logging: *default-logging
     image: {{ osprey_worker_image }}
     hostname: osprey-worker
     container_name: osprey-worker
@@ -214,7 +196,6 @@ services:
     restart: unless-stopped
 
   osprey-ui-api:
-    logging: *default-logging
     image: {{ osprey_worker_image }}
     hostname: osprey-ui-api
     container_name: osprey-ui-api
@@ -243,7 +224,6 @@ services:
     restart: unless-stopped
 
   osprey-ui:
-    logging: *default-logging
     image: {{ osprey_ui_image }}
     hostname: osprey-ui
     container_name: osprey-ui
@@ -260,7 +240,6 @@ services:
 
   # --- Druid cluster ---
   druid-zookeeper:
-    logging: *default-logging
     hostname: druid-zookeeper
     container_name: druid-zookeeper
     image: zookeeper:3.5.10
@@ -271,7 +250,6 @@ services:
     restart: unless-stopped
 
   druid-coordinator:
-    logging: *default-logging
     image: {{ druid_image }}
     hostname: druid-coordinator
     container_name: druid-coordinator
@@ -289,7 +267,6 @@ services:
     restart: unless-stopped
 
   druid-broker:
-    logging: *default-logging
     image: {{ druid_image }}
     hostname: druid-broker
     container_name: druid-broker
@@ -307,7 +284,6 @@ services:
     restart: unless-stopped
 
   druid-historical:
-    logging: *default-logging
     image: {{ druid_image }}
     hostname: druid-historical
     container_name: druid-historical
@@ -326,7 +302,6 @@ services:
     restart: unless-stopped
 
   druid-middlemanager:
-    logging: *default-logging
     image: {{ druid_image }}
     hostname: druid-middlemanager
     container_name: druid-middlemanager
@@ -346,7 +321,6 @@ services:
     restart: unless-stopped
 
   druid-router:
-    logging: *default-logging
     image: {{ druid_image }}
     hostname: druid-router
     container_name: druid-router

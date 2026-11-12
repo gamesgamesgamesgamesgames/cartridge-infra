@@ -6,9 +6,8 @@ RETENTION_DAYS="{{ pg_backup_retention_days }}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/happyview_${TIMESTAMP}.sql.gz"
 
-# Fail loudly rather than create the directory: a wrong path (it was rendered
-# as a missing /opt/happyview/backups from Jun 13 to Nov 2026) would otherwise
-# write dumps onto the root disk. The playbooks create the real directory.
+# Fail loudly rather than create the directory: a mistyped pg_backup_dir would
+# otherwise write dumps onto the root disk. The playbooks create the real one.
 if [[ ! -d "${BACKUP_DIR}" ]]; then
   echo "pg-backup: backup directory ${BACKUP_DIR} does not exist; check pg_backup_dir" >&2
   exit 1

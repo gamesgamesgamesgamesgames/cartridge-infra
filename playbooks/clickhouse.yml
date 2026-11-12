@@ -35,6 +35,16 @@
         mode: "0644"
       notify: restart clickhouse stack
 
+    # Changes here need a real restart: `docker compose up -d` (the stack
+    # handler) leaves a running container alone when only a mounted file
+    # changed, and system log settings aren't reloaded live.
+    - name: Deploy system log retention config
+      template:
+        src: ../templates/clickhouse/system-logs.xml.j2
+        dest: "{{ clickhouse_data_dir }}/config/config.d/system-logs.xml"
+        mode: "0644"
+      notify: restart clickhouse container
+
     - name: Deploy users, grants and profiles
       template:
         src: ../templates/clickhouse/users.xml.j2
@@ -98,5 +108,10 @@
   handlers:
     - name: restart clickhouse stack
       command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ clickhouse_data_dir }}"
+
+    - name: restart clickhouse container
+      command: docker compose up -d --force-recreate clickhouse
       args:
         chdir: "{{ clickhouse_data_dir }}"

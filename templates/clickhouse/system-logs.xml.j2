@@ -2,7 +2,7 @@
     <!-- config.d/system-logs.xml — retention for ClickHouse's own system
          log tables.
 
-         The stock server keeps every system log forever. On the appview host
+         The stock server sets no TTL on most system logs. On the appview host
          they reached 73 GB by Nov 2026 (trace_log 52 GB, text_log 20 GB)
          against about 3 MB of Cartridge analytics data. Only the tables the
          server already writes are listed here: naming a log that is off by
@@ -30,7 +30,7 @@
         <level>{{ clickhouse_text_log_level | default('warning') }}</level>
         <ttl>event_date + INTERVAL {{ clickhouse_text_log_ttl_days | default(7) }} DAY DELETE</ttl>
     </text_log>
-{% for table in ['query_log', 'part_log', 'query_views_log', 'error_log', 'asynchronous_insert_log'] %}
+{% for table in ['query_log', 'query_thread_log', 'part_log', 'query_views_log', 'error_log', 'asynchronous_insert_log'] %}
 
     <{{ table }}>
         <ttl>event_date + INTERVAL {{ clickhouse_system_log_ttl_days | default(30) }} DAY DELETE</ttl>

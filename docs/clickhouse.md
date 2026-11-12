@@ -160,7 +160,7 @@ curl -X POST "$BASE/admin/script-variables" -H "$AUTH" -H "Content-Type: applica
 ## System log retention
 
 ClickHouse writes its own logs into tables in the `system` database. The stock
-server keeps them forever. On the appview host they reached 73 GB by Nov 2026:
+server sets no TTL on most of them, so they grow until the disk is full. On the appview host they reached 73 GB by Nov 2026:
 `trace_log` held 52 GB and `text_log` 20 GB, against about 3 MB of Cartridge
 analytics data. `templates/clickhouse/system-logs.xml.j2` (deployed as
 `config.d/system-logs.xml`) bounds them:
@@ -169,7 +169,7 @@ analytics data. `templates/clickhouse/system-logs.xml.j2` (deployed as
 |-------|---------|
 | `trace_log` | Off (`remove="1"`), along with the query and global sampling profilers that feed it |
 | `text_log` | Level `warning`, 7-day TTL (`clickhouse_text_log_ttl_days`) |
-| `query_log`, `part_log`, `query_views_log`, `error_log`, `asynchronous_insert_log` | 30-day TTL (`clickhouse_system_log_ttl_days`) |
+| `query_log`, `query_thread_log`, `part_log`, `query_views_log`, `error_log`, `asynchronous_insert_log` | 30-day TTL (`clickhouse_system_log_ttl_days`) |
 | `metric_log`, `asynchronous_metric_log`, `latency_log`, `processors_profile_log`, `query_metric_log` | 14-day TTL (`clickhouse_metric_log_ttl_days`) |
 
 The server logger level drops from `trace` to `information`
@@ -196,8 +196,9 @@ docker exec clickhouse clickhouse-client -q "
   GROUP BY table, partition ORDER BY table, partition"
 
 # Drop by partition (monthly, YYYYMM). ClickHouse refuses to DROP or TRUNCATE
-# a table or partition larger than 50 GB (max_table_size_to_drop), and
-# trace_log is larger than that as a whole; each partition is under the limit.
+# a table larger than max_table_size_to_drop (50 GB), and trace_log is larger
+# than that as a whole. Dropping a partition is limited separately by
+# max_partition_size_to_drop (also 50 GB); each trace_log partition is under it.
 docker exec clickhouse clickhouse-client -q "ALTER TABLE system.trace_log DROP PARTITION 202607"
 # ...repeat for each partition, then:
 docker exec clickhouse clickhouse-client -q "DROP TABLE system.trace_log"

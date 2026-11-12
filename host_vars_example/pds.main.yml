@@ -35,6 +35,8 @@ node_exporter_port: 9100
 
 # --- Alerts ---
 discord_alert_webhook_url: "{{ vault_discord_alert_webhook_url }}"
+# Base role disk alert; reuses the Prometheus Discord webhook.
+disk_alert_webhook_url: "{{ vault_discord_alert_webhook_url }}"
 
 # --- Retention ---
 loki_retention_period: 30d

@@ -1,5 +1,14 @@
+# Rotate every container's json-file log so no single container can fill the
+# disk (the appview's HappyView log reached 32 GB in Nov 2026).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "{{ docker_log_max_size | default('50m') }}"
+    max-file: "{{ docker_log_max_file | default('5') }}"
+
 services:
   caddy:
+    logging: *default-logging
     container_name: caddy
     image: caddy:2
     restart: unless-stopped
@@ -16,6 +25,7 @@ services:
       - cartridge_shared
 
   happyview:
+    logging: *default-logging
     container_name: happyview
     image: "{{ happyview_image }}:{{ happyview_image_tag }}"
     restart: unless-stopped
@@ -33,6 +43,7 @@ services:
       - cartridge_shared
 
   docs:
+    logging: *default-logging
     container_name: docs
     image: "{{ docs_image }}:{{ docs_image_tag }}"
     restart: unless-stopped
@@ -40,6 +51,7 @@ services:
       - "{{ happyview_data_dir }}/docs.env"
 
   postgres:
+    logging: *default-logging
     container_name: postgres
     image: postgres:17
     restart: unless-stopped

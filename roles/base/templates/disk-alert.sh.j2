@@ -1,0 +1,77 @@
+#!/bin/bash
+# Managed by Ansible (cartridge-infra base role).
+#
+# Posts to Discord when a real filesystem passes {{ disk_alert_threshold_percent }}% used, or when a
+# tracked file (a backup, say) is missing or stale. A repeated problem is
+# re-sent at most every REPEAT_SECONDS; a cleared problem sends one "resolved"
+# message.
+set -uo pipefail
+
+WEBHOOK_URL="{{ disk_alert_webhook_url }}"
+THRESHOLD={{ disk_alert_threshold_percent | int }}
+REPEAT_SECONDS=14400
+STATE_DIR=/var/lib/disk-alert
+HOST="$(hostname)"
+NOW="$(date +%s)"
+
+mkdir -p "$STATE_DIR"
+
+post() {
+  # Messages are built only from the hostname, mount points, numbers and the
+  # check names in this file, none of which contain quotes or backslashes.
+  curl -fsS -m 10 -H 'Content-Type: application/json' \
+    -d "{\"content\": \"$1\"}" "$WEBHOOK_URL" >/dev/null \
+    || echo "disk-alert: failed to post to webhook" >&2
+}
+
+# raise KEY MESSAGE: send MESSAGE unless KEY was sent within REPEAT_SECONDS.
+raise() {
+  local key="$1" msg="$2" file="$STATE_DIR/$1"
+  if [[ -f "$file" ]] && (( NOW - $(cat "$file") < REPEAT_SECONDS )); then
+    return
+  fi
+  post "$msg"
+  echo "$NOW" > "$file"
+}
+
+# clear KEY MESSAGE: send MESSAGE once if KEY was previously raised.
+clear_alert() {
+  local key="$1" msg="$2" file="$STATE_DIR/$1"
+  if [[ -f "$file" ]]; then
+    post "$msg"
+    rm -f "$file"
+  fi
+}
+
+# --- Filesystems ---
+while read -r used mount; do
+  pct="${used%\%}"
+  key="disk_$(echo "$mount" | tr '/' '_')"
+  if (( pct >= THRESHOLD )); then
+    raise "$key" ":rotating_light: **${HOST}**: \`${mount}\` is ${pct}% full (threshold ${THRESHOLD}%)."
+  else
+    clear_alert "$key" ":white_check_mark: **${HOST}**: \`${mount}\` is back to ${pct}%."
+  fi
+done < <(df -P -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs --output=pcent,target | tail -n +2)
+
+# --- File freshness ---
+check_fresh() {
+  local name="$1" glob="$2" max_hours="$3" newest age_h
+  # shellcheck disable=SC2086 # the glob must expand
+  newest="$(ls -1t $glob 2>/dev/null | head -1)"
+  local key="fresh_${name}"
+  if [[ -z "$newest" ]]; then
+    raise "$key" ":rotating_light: **${HOST}**: ${name}: no file matches \`${glob}\`."
+    return
+  fi
+  age_h=$(( (NOW - $(stat -c %Y "$newest")) / 3600 ))
+  if (( age_h > max_hours )); then
+    raise "$key" ":rotating_light: **${HOST}**: ${name}: newest file is ${age_h}h old (limit ${max_hours}h)."
+  else
+    clear_alert "$key" ":white_check_mark: **${HOST}**: ${name} is fresh again (${age_h}h old)."
+  fi
+}
+
+{% for check in disk_alert_freshness_checks %}
+check_fresh "{{ check.name }}" "{{ check.glob }}" {{ check.max_age_hours | int }}
+{% endfor %}

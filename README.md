@@ -90,3 +90,22 @@ Provision everything in one shot:
 ```
 ansible-playbook playbooks/site.yml
 ```
+
+## Disk and log retention
+
+These settings keep logs from filling a host's disk:
+
+- **Container logs.** Every compose template shares an `x-logging` anchor:
+  the `json-file` driver, rotated at `docker_log_max_size` (50m) and kept for
+  `docker_log_max_file` (5) files. A changed compose file recreates its
+  containers on the next `docker compose up -d`, so the limits apply on the
+  next deploy without restarting the Docker daemon.
+- **journald.** The base role caps the journal at `journald_system_max_use`
+  (500M) and `journald_max_retention` (1 month).
+- **HappyView.** `RUST_LOG` defaults to `info`, since HappyView's own default
+  is `debug`. `EVENT_LOG_RETENTION_DAYS` sets how long rows stay in
+  `happyview_event_logs`.
+- **Disk alert.** Set `disk_alert_webhook_url` on a host to turn on a systemd
+  timer that posts to Discord when a filesystem passes
+  `disk_alert_threshold_percent` (85). It can also watch file freshness
+  (`disk_alert_freshness_checks`), for example the newest Postgres backup.

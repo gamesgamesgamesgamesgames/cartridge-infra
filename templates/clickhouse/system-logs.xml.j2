@@ -1,0 +1,45 @@
+<clickhouse>
+    <!-- config.d/system-logs.xml — retention for ClickHouse's own system
+         log tables.
+
+         The stock server sets no TTL on most system logs. On the appview host
+         they reached 73 GB by Nov 2026 (trace_log 52 GB, text_log 20 GB)
+         against about 3 MB of Cartridge analytics data. Only the tables the
+         server already writes are listed here: naming a log that is off by
+         default would turn it on.
+
+         Changing a system log's TTL changes its table definition. On the next
+         start ClickHouse renames the old table to <name>_0 (or _1, ...) and
+         creates a new one, so the old rows stay on disk until someone drops
+         the renamed table. See docs/clickhouse.md, "System log retention". -->
+
+    <!-- Server logs only from information up (the image default is trace). -->
+    <logger>
+        <level>{{ clickhouse_logger_level | default('information') }}</level>
+    </logger>
+
+    <!-- trace_log holds stack samples from the sampling profilers. Nothing
+         reads it here, and it was the single largest table. -->
+    <trace_log remove="1"/>
+
+    <!-- Server-wide profilers that feed trace_log. -->
+    <global_profiler_real_time_period_ns>0</global_profiler_real_time_period_ns>
+    <global_profiler_cpu_time_period_ns>0</global_profiler_cpu_time_period_ns>
+
+    <text_log>
+        <level>{{ clickhouse_text_log_level | default('warning') }}</level>
+        <ttl>event_date + INTERVAL {{ clickhouse_text_log_ttl_days | default(7) }} DAY DELETE</ttl>
+    </text_log>
+{% for table in ['query_log', 'query_thread_log', 'part_log', 'query_views_log', 'error_log', 'asynchronous_insert_log'] %}
+
+    <{{ table }}>
+        <ttl>event_date + INTERVAL {{ clickhouse_system_log_ttl_days | default(30) }} DAY DELETE</ttl>
+    </{{ table }}>
+{% endfor %}
+{% for table in ['metric_log', 'asynchronous_metric_log', 'latency_log', 'processors_profile_log', 'query_metric_log'] %}
+
+    <{{ table }}>
+        <ttl>event_date + INTERVAL {{ clickhouse_metric_log_ttl_days | default(14) }} DAY DELETE</ttl>
+    </{{ table }}>
+{% endfor %}
+</clickhouse>

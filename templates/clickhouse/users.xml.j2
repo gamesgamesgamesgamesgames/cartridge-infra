@@ -11,11 +11,17 @@
         <default>
             <load_balancing>random</load_balancing>
             <use_uncompressed_cache>0</use_uncompressed_cache>
+            <!-- Per-query sampling profilers feed trace_log, which
+                 config.d/system-logs.xml turns off. -->
+            <query_profiler_real_time_period_ns>0</query_profiler_real_time_period_ns>
+            <query_profiler_cpu_time_period_ns>0</query_profiler_cpu_time_period_ns>
         </default>
 
         <!-- SELECT-only sessions; cannot mutate data or change settings. -->
         <readonly>
             <readonly>1</readonly>
+            <query_profiler_real_time_period_ns>0</query_profiler_real_time_period_ns>
+            <query_profiler_cpu_time_period_ns>0</query_profiler_cpu_time_period_ns>
         </readonly>
     </profiles>
 

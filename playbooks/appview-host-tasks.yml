@@ -1,0 +1,99 @@
+---
+# Host-level tasks for the appview, shared by appview.yml and
+# appview-deploy.yml. They live here, not in roles/base, because a change under
+# roles/base/** triggers the deploy workflow of every host.
+
+# --- Backup volume ---
+# Never create or chmod the backup directory: it must be the attached volume.
+# A dump written to an unmounted path lands on the root disk.
+- name: Check that the backup directory is a mounted volume
+  assert:
+    that:
+      - pg_backup_dir in (ansible_mounts | map(attribute='mount') | list)
+    fail_msg: >-
+      pg_backup_dir ({{ pg_backup_dir }}) is not a mount point. Point it at the
+      backup volume's mount, or set pg_backup_require_mount=false for a host
+      without one.
+  when: pg_backup_require_mount | default(true) | bool
+
+# --- journald size cap ---
+- name: Create journald drop-in directory
+  file:
+    path: /etc/systemd/journald.conf.d
+    state: directory
+    mode: "0755"
+
+- name: Cap journald disk use
+  copy:
+    content: |
+      # Managed by Ansible (cartridge-infra, playbooks/appview-host-tasks.yml).
+      [Journal]
+      SystemMaxUse={{ journald_system_max_use | default('500M') }}
+      MaxRetentionSec={{ journald_max_retention | default('1month') }}
+    dest: /etc/systemd/journald.conf.d/00-size.conf
+    mode: "0644"
+  register: journald_conf
+
+- name: Restart journald to apply the cap
+  systemd:
+    name: systemd-journald
+    state: restarted
+  when: journald_conf.changed
+
+# --- Disk and backup alert ---
+# On only when disk_alert_webhook_url is set (repo secret
+# APPVIEW_DISK_ALERT_WEBHOOK_URL in CI).
+- name: Deploy disk alert script
+  template:
+    src: ../templates/appview/disk-alert.sh.j2
+    dest: /usr/local/bin/disk-alert.sh
+    owner: root
+    group: root
+    mode: "0700"
+  vars:
+    # Published dumps only: pg-backup.sh writes to *.sql.gz.tmp until a dump
+    # is complete, and that name doesn't match this glob.
+    disk_alert_freshness_checks:
+      - name: pg-backup
+        glob: "{{ pg_backup_dir }}/happyview_*.sql.gz"
+        max_age_hours: "{{ pg_backup_max_age_hours | default(26) }}"
+  when: disk_alert_webhook_url | default('') | length > 0
+
+- name: Deploy disk alert service
+  copy:
+    content: |
+      [Unit]
+      Description=Alert when a filesystem is nearly full or the newest backup is stale
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/disk-alert.sh
+    dest: /etc/systemd/system/disk-alert.service
+    mode: "0644"
+  register: disk_alert_service
+  when: disk_alert_webhook_url | default('') | length > 0
+
+- name: Deploy disk alert timer
+  copy:
+    content: |
+      [Unit]
+      Description=Run the disk alert check every {{ disk_alert_interval | default('15min') }}
+
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec={{ disk_alert_interval | default('15min') }}
+
+      [Install]
+      WantedBy=timers.target
+    dest: /etc/systemd/system/disk-alert.timer
+    mode: "0644"
+  register: disk_alert_timer
+  when: disk_alert_webhook_url | default('') | length > 0
+
+- name: Enable the disk alert timer (restarted when its unit changed)
+  systemd:
+    name: disk-alert.timer
+    enabled: true
+    state: "{{ 'restarted' if (disk_alert_timer.changed or disk_alert_service.changed) else 'started' }}"
+    daemon_reload: true
+  when: disk_alert_webhook_url | default('') | length > 0

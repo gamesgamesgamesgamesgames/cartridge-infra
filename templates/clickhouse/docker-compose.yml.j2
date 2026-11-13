@@ -1,5 +1,14 @@
+# Rotate every container's json-file log so no single container can fill the
+# disk (the appview's HappyView log reached 32 GB in Nov 2026).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "{{ docker_log_max_size | default('50m') }}"
+    max-file: "{{ docker_log_max_file | default('5') }}"
+
 services:
   clickhouse:
+    logging: *default-logging
     container_name: clickhouse
     image: "clickhouse/clickhouse-server:{{ clickhouse_image_tag }}"
     restart: unless-stopped

@@ -4,6 +4,10 @@
   # No vars_files — GitHub Actions passes all vars via -e flags.
   # For local runs, host_vars/appview/*.yml are loaded automatically.
   tasks:
+    # First, so a missing backup volume stops the deploy before anything changes.
+    - name: Host tasks (backup volume check, journald cap, disk alert)
+      include_tasks: appview-host-tasks.yml
+
     - name: Deploy docker-compose.yml
       template:
         src: ../templates/appview/docker-compose.yml.j2

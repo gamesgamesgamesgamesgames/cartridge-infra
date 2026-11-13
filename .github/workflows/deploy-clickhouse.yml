@@ -17,8 +17,11 @@ on:
         type: boolean
         default: false
 
+# Shares the appview workflows' group: ClickHouse runs on the appview host,
+# and this playbook's base role (apt, ufw, docker) must not run alongside
+# appview-deploy.yml there.
 concurrency:
-  group: deploy-clickhouse
+  group: deploy-appview
   cancel-in-progress: false
 
 jobs:

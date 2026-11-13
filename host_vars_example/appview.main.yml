@@ -17,11 +17,21 @@ happyview_session_secret: "{{ vault_session_secret }}"
 happyview_token_encryption_key: "{{ vault_token_encryption_key }}"
 happyview_relay_url: "https://bsky.network"
 happyview_jetstream_url: "wss://jetstream1.us-east.bsky.network"
-happyview_event_log_retention_days: 30
+# HappyView before 2.17.0 writes a script.executed event, with the full
+# response body, for every XRPC query. At Cartridge's traffic that reached
+# 17 GB at 30 days' retention (Nov 2026). Keep this short until the instance
+# runs 2.17.0 or later, which only logs those events with verbose logging on.
+happyview_event_log_retention_days: 7
+happyview_rust_log: "happyview=info,tower_http=info,sqlx=warn"
 
 # --- Backup ---
-pg_backup_dir: /opt/happyview/backups
+# Must be the mount point of the attached backup volume; the playbooks refuse
+# to run otherwise (pg_backup_require_mount: false turns the check off).
+pg_backup_dir: /mnt/HC_Volume_XXXXXXXXX
 pg_backup_retention_days: 7
+
+# --- Disk and backup alert (playbooks/appview-host-tasks.yml) ---
+disk_alert_webhook_url: "{{ vault_disk_alert_webhook_url }}"
 
 # --- Docs site ---
 docs_image: ghcr.io/gamesgamesgamesgamesgames/docs

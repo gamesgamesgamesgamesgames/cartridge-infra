@@ -50,6 +50,8 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.APPVIEW_POSTGRES_PASSWORD }}
           SESSION_SECRET: ${{ secrets.APPVIEW_SESSION_SECRET }}
           TOKEN_ENCRYPTION_KEY: ${{ secrets.APPVIEW_TOKEN_ENCRYPTION_KEY }}
+          # Disk and backup alert; leave the secret unset to keep it off.
+          DISK_ALERT_WEBHOOK_URL: ${{ secrets.APPVIEW_DISK_ALERT_WEBHOOK_URL }}
           MEILISEARCH_API_KEY: ${{ secrets.APPVIEW_MEILISEARCH_API_KEY }}
           DOCS_CLIENT_KEY: ${{ secrets.DOCS_CLIENT_KEY }}
         run: |
@@ -67,16 +69,17 @@ jobs:
             -e "happyview_token_encryption_key=$TOKEN_ENCRYPTION_KEY" \
             -e "happyview_relay_url=https://bsky.network" \
             -e "happyview_jetstream_url=wss://jetstream1.us-east.bsky.network" \
-            -e "happyview_event_log_retention_days=30" \
+            -e "happyview_event_log_retention_days=7" \
             -e "happyview_meilisearch_url=http://10.0.0.3:7700" \
             -e "happyview_meilisearch_api_key=$MEILISEARCH_API_KEY" \
-            -e "pg_backup_dir=/opt/happyview/backups" \
+            -e "pg_backup_dir=/mnt/HC_Volume_105990121" \
             -e "pg_backup_retention_days=7" \
             -e "docs_image=ghcr.io/gamesgamesgamesgamesgames/docs" \
             -e "docs_image_tag=latest" \
             -e "docs_client_key=$DOCS_CLIENT_KEY" \
             -e "happyview_base_path=/hv" \
-            -e "clickhouse_ingest_domain=ch.kart.sh"
+            -e "clickhouse_ingest_domain=ch.kart.sh" \
+            -e "disk_alert_webhook_url=$DISK_ALERT_WEBHOOK_URL"
 
       - name: Cleanup SSH key
         if: always()

@@ -27,7 +27,10 @@
       loop:
         - "{{ happyview_data_dir }}"
         - "{{ happyview_data_dir }}/plugins"
-        - "{{ pg_backup_dir }}"
+
+    # Backup volume check, journald cap, disk alert.
+    - name: Host tasks
+      include_tasks: appview-host-tasks.yml
 
     # --- Deploy templates ---
     - name: Deploy docker-compose.yml

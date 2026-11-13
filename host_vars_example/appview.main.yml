@@ -3,7 +3,7 @@
 # --- HappyView ---
 happyview_hostname: gamesgamesgamesgames.games
 happyview_image: ghcr.io/gamesgamesgamesgamesgames/happyview
-happyview_image_tag: "2.15.0" # Latest release tag; updated via repository_dispatch
+happyview_image_tag: "2.17.5" # Latest release tag; updated via repository_dispatch
 happyview_data_dir: /opt/happyview
 
 # --- Postgres ---
@@ -23,6 +23,9 @@ happyview_jetstream_url: "wss://jetstream1.us-east.bsky.network"
 # runs 2.17.0 or later, which only logs those events with verbose logging on.
 happyview_event_log_retention_days: 7
 happyview_rust_log: "happyview=info,tower_http=info,sqlx=warn"
+# host:port list scripts may reach at private addresses (HappyView 2.17+).
+# Must match the MEILISEARCH_URL and CLICKHOUSE_URL script variables.
+happyview_allow_private_hosts: "10.0.0.3:7700,clickhouse:8123"
 
 # --- Backup ---
 # Must be the mount point of the attached backup volume; the playbooks refuse

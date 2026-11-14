@@ -55,6 +55,9 @@ jobs:
           HAPPYVIEW_URL: ${{ secrets.SYNC_HAPPYVIEW_URL }}
           HAPPYVIEW_API_KEY: ${{ secrets.SYNC_HAPPYVIEW_API_KEY }}
           IGDB_ATPROTO_DID: ${{ secrets.SYNC_IGDB_ATPROTO_DID }}
+          # The catalogue account game media is mirrored to. The sync refuses
+          # to start when ATPROTO_IDENTIFIER logs in as anything else.
+          PENTARACT_DID: ${{ vars.PENTARACT_DID || 'did:web:gamesgamesgamesgames.games' }}
           IGDB_ATPROTO_IDENTIFIER: ${{ secrets.SYNC_IGDB_ATPROTO_IDENTIFIER }}
           HAPPYVIEW_CLIENT_ID: ${{ secrets.SYNC_HAPPYVIEW_CLIENT_ID }}
           HAPPYVIEW_CLIENT_KEY: ${{ secrets.SYNC_HAPPYVIEW_CLIENT_KEY }}
@@ -70,6 +73,7 @@ jobs:
             -e "happyview_url=$HAPPYVIEW_URL" \
             -e "happyview_api_key=$HAPPYVIEW_API_KEY" \
             -e "igdb_atproto_did=$IGDB_ATPROTO_DID" \
+            -e "pentaract_did=$PENTARACT_DID" \
             -e "igdb_atproto_identifier=$IGDB_ATPROTO_IDENTIFIER" \
             -e "happyview_client_id=$HAPPYVIEW_CLIENT_ID" \
             -e "happyview_client_key=$HAPPYVIEW_CLIENT_KEY" \

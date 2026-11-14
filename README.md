@@ -118,3 +118,6 @@ These settings keep logs and backups from filling the appview's disk:
   is `debug`. `EVENT_LOG_RETENTION_DAYS` sets how long rows stay in
   `happyview_event_logs`. A value set in the dashboard
   (`happyview_instance_settings`) overrides the env var.
+  `JOB_WORKER_CONCURRENCY` (var `happyview_job_worker_concurrency`) defaults
+  to 2 here rather than HappyView's 1, so a long auto-accept sweep doesn't
+  hold up the per-contribution jobs. HappyView clamps it to 1–32.

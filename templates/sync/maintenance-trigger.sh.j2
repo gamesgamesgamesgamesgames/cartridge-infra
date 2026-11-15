@@ -1,0 +1,21 @@
+#!/bin/bash
+# Forced command for the scheduled-maintenance SSH key (installed by
+# playbooks/sync.yml). The key can run this and nothing else: sshd puts what
+# the client asked for in SSH_ORIGINAL_COMMAND, and only the fixed tasks below
+# are accepted. Called weekly by .github/workflows/maintenance.yml.
+set -euo pipefail
+
+case "${SSH_ORIGINAL_COMMAND:-}" in
+  "weekly-signals")           args=(weekly-signals) ;;
+  "weekly-signals --dry-run") args=(weekly-signals --dry-run) ;;
+  "weekly-search")            args=(weekly-search) ;;
+  "weekly-search --dry-run")  args=(weekly-search --dry-run) ;;
+  *)
+    echo "maintenance-trigger: refused '${SSH_ORIGINAL_COMMAND:-}'" >&2
+    exit 2
+    ;;
+esac
+
+cd /opt/igdb-scrape
+/opt/igdb-scrape/node_modules/.bin/tsx src/maintenance.ts "${args[@]}" 2>&1 \
+  | tee -a /var/log/igdb-scrape/maintenance.log

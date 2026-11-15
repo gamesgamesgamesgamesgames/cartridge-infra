@@ -121,3 +121,26 @@ These settings keep logs and backups from filling the appview's disk:
   `JOB_WORKER_CONCURRENCY` (var `happyview_job_worker_concurrency`) defaults
   to 2 here rather than HappyView's 1, so a long auto-accept sweep doesn't
   hold up the per-contribution jobs. HappyView clamps it to 1–32.
+
+## Scheduled maintenance
+
+HappyView can't schedule jobs yet (HAP-187), so `.github/workflows/maintenance.yml` queues the weekly ones:
+
+| When (UTC) | Task | Queues |
+|---|---|---|
+| Sun 03:00 | `weekly-signals` | `syncWikidata`, then `refreshPublisherCounts` |
+| Mon 03:00 | `weekly-search` | `reindexSearchGames` over every game |
+
+Run either one by hand with **Run workflow**, which defaults to a dry run.
+
+**How it connects.** Each run opens one SSH connection to appview, with its own key, and never retries: Hetzner bans addresses that open too many connections. `playbooks/sync.yml` installs that key in root's `authorized_keys`, pinned with `command="/usr/local/bin/cartridge-maintenance-trigger",restrict`. The trigger accepts only the two task names (each optionally with `--dry-run`) and runs `src/maintenance.ts` in `/opt/igdb-scrape`. That script uses the sync account's stored HappyView session, so no HappyView credential lives in GitHub. Output is appended to `/var/log/igdb-scrape/maintenance.log`.
+
+**One-time setup:**
+1. Generate a keypair: `ssh-keygen -t ed25519 -N '' -C cartridge-maintenance -f maintenance_key`.
+2. Add these secrets:
+   - `APPVIEW_MAINTENANCE_SSH_KEY`: the private half;
+   - `APPVIEW_MAINTENANCE_SSH_PUBLIC_KEY`: the public half;
+   - `APPVIEW_KNOWN_HOSTS`: appview's host key line, for example from `ssh-keyscan <appview ip>` run once from your own machine.
+3. Run **Deploy sync**, which installs the trigger and the key.
+4. In HappyView, set the script variable `MAINTENANCE_DIDS` to the sync account's DID.
+5. Run **Scheduled maintenance** by hand with a dry run, once for each task.

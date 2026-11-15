@@ -100,6 +100,27 @@
         dest: /etc/systemd/system/steamspy-enrich.timer
       notify: reload systemd
 
+    # --- Scheduled maintenance trigger ---
+    # .github/workflows/maintenance.yml runs HappyView's weekly maintenance
+    # jobs over one SSH connection with its own key. The key is pinned to the
+    # trigger script (a forced command, with `restrict` turning off ptys and
+    # forwarding), so it cannot open a shell or run anything else.
+    - name: Deploy maintenance trigger
+      template:
+        src: ../templates/sync/maintenance-trigger.sh.j2
+        dest: /usr/local/bin/cartridge-maintenance-trigger
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Authorize the scheduled-maintenance key for the trigger only
+      ansible.posix.authorized_key:
+        user: root
+        key: "{{ lookup('env', 'MAINTENANCE_SSH_PUBLIC_KEY') }}"
+        key_options: 'command="/usr/local/bin/cartridge-maintenance-trigger",restrict'
+        state: present
+      when: lookup('env', 'MAINTENANCE_SSH_PUBLIC_KEY') | length > 0
+
     # --- Log rotation ---
     - name: Deploy logrotate config
       template:

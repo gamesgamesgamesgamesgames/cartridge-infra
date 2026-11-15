@@ -113,13 +113,26 @@
         group: root
         mode: "0755"
 
-    - name: Authorize the scheduled-maintenance key for the trigger only
-      ansible.posix.authorized_key:
-        user: root
-        key: "{{ lookup('env', 'MAINTENANCE_SSH_PUBLIC_KEY') }}"
-        key_options: 'command="/usr/local/bin/cartridge-maintenance-trigger",restrict'
+    # Exactly one authorized_keys line carries the trigger's forced command,
+    # and this task owns it: a new key replaces the old one in place (that is
+    # rotation), and an unset secret removes the line. Other keys in the file,
+    # such as the deploy key, are not touched.
+    - name: Set the scheduled-maintenance key, pinned to the trigger
+      lineinfile:
+        path: /root/.ssh/authorized_keys
+        regexp: '^command="/usr/local/bin/cartridge-maintenance-trigger",'
+        line: 'command="/usr/local/bin/cartridge-maintenance-trigger",restrict {{ lookup(''env'', ''MAINTENANCE_SSH_PUBLIC_KEY'') | trim }}'
         state: present
-      when: lookup('env', 'MAINTENANCE_SSH_PUBLIC_KEY') | length > 0
+        owner: root
+        mode: "0600"
+      when: lookup('env', 'MAINTENANCE_SSH_PUBLIC_KEY') | trim | length > 0
+
+    - name: Remove the scheduled-maintenance key when no key is configured
+      lineinfile:
+        path: /root/.ssh/authorized_keys
+        regexp: '^command="/usr/local/bin/cartridge-maintenance-trigger",'
+        state: absent
+      when: lookup('env', 'MAINTENANCE_SSH_PUBLIC_KEY') | trim | length == 0
 
     # --- Log rotation ---
     - name: Deploy logrotate config

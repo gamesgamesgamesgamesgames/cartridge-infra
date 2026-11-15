@@ -128,19 +128,31 @@ HappyView can't schedule jobs yet (HAP-187), so `.github/workflows/maintenance.y
 
 | When (UTC) | Task | Queues |
 |---|---|---|
-| Sun 03:00 | `weekly-signals` | `syncWikidata`, then `refreshPublisherCounts` |
-| Mon 03:00 | `weekly-search` | `reindexSearchGames` over every game |
+| Sun 12:00 | `weekly-signals` | `syncWikidata`, then `refreshPublisherCounts` |
+| Mon 12:00 | `weekly-search` | `reindexSearchGames` over every game |
 
 Run either one by hand with **Run workflow**, which defaults to a dry run.
 
-**How it connects.** Each run opens one SSH connection to appview, with its own key, and never retries: Hetzner bans addresses that open too many connections. `playbooks/sync.yml` installs that key in root's `authorized_keys`, pinned with `command="/usr/local/bin/cartridge-maintenance-trigger",restrict`. The trigger accepts only the two task names (each optionally with `--dry-run`) and runs `src/maintenance.ts` in `/opt/igdb-scrape`. That script uses the sync account's stored HappyView session, so no HappyView credential lives in GitHub. Output is appended to `/var/log/igdb-scrape/maintenance.log`.
+**The weekly full search reindex is intended.** `search.reindex` compares every game's document with what the builder would write, and rewrites only the ones that differ. A full run is therefore cheap when little changed, and it picks up the week's new Wikidata and publisher signals.
+
+**How it connects.** Each run opens one SSH connection to appview, with its own key, and never retries: Hetzner bans addresses that open too many connections. The host key comes from a secret, so the workflow never runs `ssh-keyscan`.
+- The key's line in root's `authorized_keys` is pinned with `command="/usr/local/bin/cartridge-maintenance-trigger",restrict`, so it can run nothing but the trigger.
+- The trigger accepts only the two task names (each optionally with `--dry-run`) and runs `src/maintenance.ts` in `/opt/igdb-scrape`. That script uses the sync account's stored HappyView session, so no HappyView credential lives in GitHub.
+
+**What the run shows.** This repo is public, and so are its Actions logs. The trigger writes the full output to `/var/log/igdb-scrape/maintenance.log` on appview and returns a single status line: `ok`, `failed`, or `skipped`.
+
+**When it skips.** The trigger exits 0 with "skipped: sync running" while `igdb-sync.service`, or any other `igdb-*` unit, is active. Those share the stored session, and its refresh tokens are single-use. It also skips while another maintenance run holds its lock. The runs sit at 12:00 UTC, well clear of the nightly sync at 00:00.
+
+**Where the key lives.** The private half is the secret `APPVIEW_MAINTENANCE_SSH_KEY`. The public half is the secret `APPVIEW_MAINTENANCE_SSH_PUBLIC_KEY`, which **Deploy sync** writes into root's `authorized_keys` as the one line carrying the trigger's forced command.
+- **To rotate:** replace both secrets and run **Deploy sync**. The old line is replaced in place.
+- **To revoke:** empty `APPVIEW_MAINTENANCE_SSH_PUBLIC_KEY` and run **Deploy sync**, which removes the line.
 
 **One-time setup:**
 1. Generate a keypair: `ssh-keygen -t ed25519 -N '' -C cartridge-maintenance -f maintenance_key`.
 2. Add these secrets:
    - `APPVIEW_MAINTENANCE_SSH_KEY`: the private half;
    - `APPVIEW_MAINTENANCE_SSH_PUBLIC_KEY`: the public half;
-   - `APPVIEW_KNOWN_HOSTS`: appview's host key line, for example from `ssh-keyscan <appview ip>` run once from your own machine.
+   - `APPVIEW_KNOWN_HOSTS`: appview's host key lines, keyed by the address in `APPVIEW_SERVER_IP`, for example from `ssh-keygen -F <appview ip>` against your own `~/.ssh/known_hosts`.
 3. Run **Deploy sync**, which installs the trigger and the key.
 4. In HappyView, set the script variable `MAINTENANCE_DIDS` to the sync account's DID.
 5. Run **Scheduled maintenance** by hand with a dry run, once for each task.

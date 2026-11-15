@@ -9,17 +9,19 @@ name: Scheduled maintenance
 # workflow never retries, never polls, and pins the host key from a secret
 # instead of running ssh-keyscan (a second connection).
 #
-#   Sun 03:00 UTC  weekly-signals  syncWikidata, then refreshPublisherCounts
-#   Mon 03:00 UTC  weekly-search   reindexSearchGames over every game
+#   Sun 12:00 UTC  weekly-signals  syncWikidata, then refreshPublisherCounts
+#   Mon 12:00 UTC  weekly-search   reindexSearchGames over every game
 #
 # The procedures only queue jobs, so each run takes seconds. Monday's search
 # reindex runs a day after the signals, which gives Sunday's jobs time to
-# finish.
+# finish. Noon UTC keeps clear of the nightly sync (00:00), which shares the
+# HappyView session; the trigger skips if a sync is running anyway. The
+# runner only ever sees the trigger's one status line (this repo is public).
 
 on:
   schedule:
-    - cron: '0 3 * * 0'
-    - cron: '0 3 * * 1'
+    - cron: '0 12 * * 0'
+    - cron: '0 12 * * 1'
   workflow_dispatch:
     inputs:
       task:
@@ -53,8 +55,8 @@ jobs:
           INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           case "${SCHEDULE:-}" in
-            '0 3 * * 0') task=weekly-signals; dry=false ;;
-            '0 3 * * 1') task=weekly-search; dry=false ;;
+            '0 12 * * 0') task=weekly-signals; dry=false ;;
+            '0 12 * * 1') task=weekly-search; dry=false ;;
             '') task="$INPUT_TASK"; dry="$INPUT_DRY_RUN" ;;
             *) echo "unknown schedule '$SCHEDULE'" >&2; exit 1 ;;
           esac

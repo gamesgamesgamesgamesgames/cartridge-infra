@@ -63,9 +63,6 @@ jobs:
           HAPPYVIEW_CLIENT_KEY: ${{ secrets.SYNC_HAPPYVIEW_CLIENT_KEY }}
           HAPPYVIEW_CLIENT_SECRET: ${{ secrets.SYNC_HAPPYVIEW_CLIENT_SECRET }}
           POSTGRES_PASSWORD: ${{ secrets.APPVIEW_POSTGRES_PASSWORD }}
-          # Public half of the scheduled-maintenance key; the playbook pins it
-          # to the trigger script. Unset means the key is not installed.
-          MAINTENANCE_SSH_PUBLIC_KEY: ${{ secrets.APPVIEW_MAINTENANCE_SSH_PUBLIC_KEY }}
         run: |
           ansible-playbook playbooks/sync.yml \
             -e "twitch_client_id=$TWITCH_CLIENT_ID" \

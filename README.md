@@ -135,12 +135,8 @@ Run either one by hand with **Run workflow**, which defaults to a dry run.
 
 **How it connects.** Each run opens one SSH connection to appview, with its own key, and never retries: Hetzner bans addresses that open too many connections. `playbooks/sync.yml` installs that key in root's `authorized_keys`, pinned with `command="/usr/local/bin/cartridge-maintenance-trigger",restrict`. The trigger accepts only the two task names (each optionally with `--dry-run`) and runs `src/maintenance.ts` in `/opt/igdb-scrape`. That script uses the sync account's stored HappyView session, so no HappyView credential lives in GitHub. Output is appended to `/var/log/igdb-scrape/maintenance.log`.
 
-**One-time setup:**
-1. Generate a keypair: `ssh-keygen -t ed25519 -N '' -C cartridge-maintenance -f maintenance_key`.
-2. Add these secrets:
-   - `APPVIEW_MAINTENANCE_SSH_KEY`: the private half;
-   - `APPVIEW_MAINTENANCE_SSH_PUBLIC_KEY`: the public half;
-   - `APPVIEW_KNOWN_HOSTS`: appview's host key line, for example from `ssh-keyscan <appview ip>` run once from your own machine.
-3. Run **Deploy sync**, which installs the trigger and the key.
-4. In HappyView, set the script variable `MAINTENANCE_DIDS` to the sync account's DID.
-5. Run **Scheduled maintenance** by hand with a dry run, once for each task.
+**Setup.** The public half of the key is `files/sync/maintenance_key.pub`, and the private half is the secret `APPVIEW_MAINTENANCE_SSH_KEY`. To rotate the key, replace both. The remaining one-time steps:
+1. Add the secret `APPVIEW_KNOWN_HOSTS`: appview's host key lines, in known_hosts format, keyed by the address in `APPVIEW_SERVER_IP`. Take them from your own `~/.ssh/known_hosts` (`ssh-keygen -F <appview ip>`), so the workflow never has to run `ssh-keyscan`.
+2. Run **Deploy sync**, which installs the trigger and the key.
+3. In HappyView, set the script variable `MAINTENANCE_DIDS` to the sync account's DID.
+4. Run **Scheduled maintenance** by hand with a dry run, once for each task.

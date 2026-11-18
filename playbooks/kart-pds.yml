@@ -2,6 +2,9 @@
 - name: Provision kart-pds (Tranquil PDS + Postgres + Caddy)
   hosts: kart-pds
   become: yes
+  vars:
+    # The kart-pds-blobs Hetzner volume (id 107524374).
+    kart_pds_blobs_volume_uuid: caa5ea6d-1786-4b03-95f3-b112ecfa3475
   roles:
     - base
   tasks:
@@ -17,6 +20,70 @@
         - "{{ kart_pds_data_dir }}/caddy"
         - "{{ kart_pds_data_dir }}/caddy/data"
         - "{{ kart_pds_data_dir }}/caddy/config"
+
+    # Blobs live on a Hetzner volume (kart-pds-blobs, 100 GB), not the 38 GB
+    # root disk, since Nov 18, 2026. nofail keeps a missing volume from
+    # blocking boot; kart-pds.service has RequiresMountsFor, so the PDS
+    # won't start without it.
+    - name: Mount the blob volume
+      ansible.posix.mount:
+        path: "{{ kart_pds_data_dir }}/tranquil-data"
+        src: "UUID={{ kart_pds_blobs_volume_uuid }}"
+        fstype: ext4
+        opts: discard,nofail,defaults
+        passno: "2"
+        state: mounted
+
+    - name: Create journald drop-in directory
+      file:
+        path: /etc/systemd/journald.conf.d
+        state: directory
+        mode: "0755"
+
+    - name: Cap journald disk use
+      copy:
+        content: |
+          # Managed by Ansible (cartridge-infra, playbooks/kart-pds.yml).
+          [Journal]
+          SystemMaxUse={{ journald_system_max_use | default('300M') }}
+          MaxRetentionSec={{ journald_max_retention | default('1month') }}
+        dest: /etc/systemd/journald.conf.d/00-size.conf
+        mode: "0644"
+      register: journald_conf
+
+    - name: Restart journald to apply the cap
+      systemd:
+        name: systemd-journald
+        state: restarted
+      when: journald_conf.changed
+
+    # rsyslog's syslog reached 1.6G on Nov 18, 2026. Rotate it daily, or
+    # sooner once it passes 200M, and keep four.
+    - name: Cap rsyslog's files
+      copy:
+        content: |
+          # Managed by Ansible (cartridge-infra, playbooks/kart-pds.yml).
+          /var/log/syslog
+          /var/log/mail.log
+          /var/log/kern.log
+          /var/log/auth.log
+          /var/log/user.log
+          /var/log/cron.log
+          {
+          	rotate 4
+          	daily
+          	maxsize 200M
+          	missingok
+          	notifempty
+          	compress
+          	delaycompress
+          	sharedscripts
+          	postrotate
+          		/usr/lib/rsyslog/rsyslog-rotate
+          	endscript
+          }
+        dest: /etc/logrotate.d/rsyslog
+        mode: "0644"
 
     - name: Log in to GHCR
       community.docker.docker_login:

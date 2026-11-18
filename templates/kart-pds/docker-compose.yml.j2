@@ -1,6 +1,16 @@
 # Rendered by Ansible into {{ kart_pds_data_dir }}/docker-compose.yml
+
+# Cap each container's json-file log. Uncapped, Caddy's log reached 1.2G and
+# helped fill the root disk on Nov 18, 2026.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "{{ kart_pds_log_max_size | default('50m') }}"
+    max-file: "{{ kart_pds_log_max_file | default('3') }}"
+
 services:
   db:
+    logging: *logging
     image: {{ kart_pds_postgres_image }}
     restart: unless-stopped
     env_file:
@@ -20,6 +30,7 @@ services:
           memory: 128M
 
   tranquil-pds:
+    logging: *logging
     image: {{ kart_pds_image }}
     restart: unless-stopped
     depends_on:
@@ -40,6 +51,7 @@ services:
           memory: 256M
 
   caddy:
+    logging: *logging
     image: {{ kart_pds_caddy_image }}
     restart: unless-stopped
     depends_on:

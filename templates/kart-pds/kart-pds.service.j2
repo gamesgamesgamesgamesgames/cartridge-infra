@@ -3,6 +3,9 @@ Description=Tranquil PDS (kart.sh)
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
+# Blobs live on a separate volume; without it, the PDS would write new blobs
+# to the root disk and serve old ones as missing.
+RequiresMountsFor={{ kart_pds_data_dir }}/tranquil-data
 
 [Service]
 Type=simple

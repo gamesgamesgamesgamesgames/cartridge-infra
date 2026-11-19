@@ -100,6 +100,40 @@
         dest: /etc/systemd/system/steamspy-enrich.timer
       notify: reload systemd
 
+    # --- Scheduled maintenance trigger ---
+    # .github/workflows/maintenance.yml runs HappyView's weekly maintenance
+    # jobs over one SSH connection with its own key. The key is pinned to the
+    # trigger script (a forced command, with `restrict` turning off ptys and
+    # forwarding), so it cannot open a shell or run anything else.
+    - name: Deploy maintenance trigger
+      template:
+        src: ../templates/sync/maintenance-trigger.sh.j2
+        dest: /usr/local/bin/cartridge-maintenance-trigger
+        owner: root
+        group: root
+        mode: "0755"
+
+    # Exactly one authorized_keys line carries the trigger's forced command,
+    # and this task owns it: a new key replaces the old one in place (that is
+    # rotation), and an unset secret removes the line. Other keys in the file,
+    # such as the deploy key, are not touched.
+    - name: Set the scheduled-maintenance key, pinned to the trigger
+      lineinfile:
+        path: /root/.ssh/authorized_keys
+        regexp: '^command="/usr/local/bin/cartridge-maintenance-trigger",'
+        line: 'command="/usr/local/bin/cartridge-maintenance-trigger",restrict {{ lookup(''env'', ''MAINTENANCE_SSH_PUBLIC_KEY'') | trim }}'
+        state: present
+        owner: root
+        mode: "0600"
+      when: lookup('env', 'MAINTENANCE_SSH_PUBLIC_KEY') | trim | length > 0
+
+    - name: Remove the scheduled-maintenance key when no key is configured
+      lineinfile:
+        path: /root/.ssh/authorized_keys
+        regexp: '^command="/usr/local/bin/cartridge-maintenance-trigger",'
+        state: absent
+      when: lookup('env', 'MAINTENANCE_SSH_PUBLIC_KEY') | trim | length == 0
+
     # --- Log rotation ---
     - name: Deploy logrotate config
       template:

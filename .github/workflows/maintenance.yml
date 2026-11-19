@@ -1,0 +1,102 @@
+name: Scheduled maintenance
+
+# Queues HappyView's weekly maintenance jobs until HappyView can schedule jobs
+# itself (HAP-187). Each run opens exactly one SSH connection to appview, with
+# a key that is pinned to /usr/local/bin/cartridge-maintenance-trigger (see
+# playbooks/sync.yml), which runs src/maintenance.ts in the sync checkout.
+#
+# Hetzner bans source addresses that open too many SSH connections, so this
+# workflow never retries, never polls, and pins the host key from a secret
+# instead of running ssh-keyscan (a second connection).
+#
+#   Sun 12:00 UTC  weekly-signals  syncWikidata, then refreshPublisherCounts
+#   Mon 12:00 UTC  weekly-search   reindexSearchGames over every game
+#
+# The procedures only queue jobs, so each run takes seconds. Monday's search
+# reindex runs a day after the signals, which gives Sunday's jobs time to
+# finish. Noon UTC keeps clear of the nightly sync (00:00), which shares the
+# HappyView session; the trigger skips if a sync is running anyway. The
+# runner only ever sees the trigger's one status line (this repo is public).
+
+on:
+  schedule:
+    - cron: '0 12 * * 0'
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Maintenance task'
+        type: choice
+        options: [weekly-signals, weekly-search]
+        required: true
+      dry_run:
+        description: 'Dry run: the jobs compare and report without writing'
+        type: boolean
+        default: true
+
+concurrency:
+  group: maintenance
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    name: Queue ${{ github.event.inputs.task || 'scheduled' }} maintenance
+    runs-on: depot-ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pick the task
+        id: task
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_TASK: ${{ github.event.inputs.task }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          case "${SCHEDULE:-}" in
+            '0 12 * * 0') task=weekly-signals; dry=false ;;
+            '0 12 * * 1') task=weekly-search; dry=false ;;
+            '') task="$INPUT_TASK"; dry="$INPUT_DRY_RUN" ;;
+            *) echo "unknown schedule '$SCHEDULE'" >&2; exit 1 ;;
+          esac
+          case "$task" in weekly-signals|weekly-search) ;; *) echo "unknown task '$task'" >&2; exit 1 ;; esac
+          command="$task"
+          if [ "$dry" = "true" ]; then command="$task --dry-run"; fi
+          echo "command=$command" >> "$GITHUB_OUTPUT"
+
+      - name: Set up the maintenance key
+        env:
+          MAINTENANCE_SSH_KEY: ${{ secrets.APPVIEW_MAINTENANCE_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.APPVIEW_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$MAINTENANCE_SSH_KEY" ] || [ -z "$KNOWN_HOSTS" ]; then
+            echo "APPVIEW_MAINTENANCE_SSH_KEY and APPVIEW_KNOWN_HOSTS must be set" >&2
+            exit 1
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$MAINTENANCE_SSH_KEY" > ~/.ssh/maintenance_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/maintenance_key ~/.ssh/known_hosts
+
+      # One connection, no retries. If it fails, the next scheduled run is the
+      # retry; run it by hand with workflow_dispatch if it can't wait.
+      - name: Queue the jobs on appview
+        env:
+          SERVER_IP: ${{ secrets.APPVIEW_SERVER_IP }}
+          COMMAND: ${{ steps.task.outputs.command }}
+        run: |
+          ssh -i ~/.ssh/maintenance_key \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -o ConnectionAttempts=1 \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=4 \
+            "root@$SERVER_IP" "$COMMAND"
+
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/maintenance_key

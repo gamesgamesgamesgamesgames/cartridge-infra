@@ -1,0 +1,57 @@
+#!/bin/bash
+# Forced command for the scheduled-maintenance SSH key (installed by
+# playbooks/sync.yml). The key can run this and nothing else: sshd puts what
+# the client asked for in SSH_ORIGINAL_COMMAND, and only the fixed tasks below
+# are accepted. Called weekly by .github/workflows/maintenance.yml.
+#
+# cartridge-infra is public, and so are its Actions logs. Everything the
+# caller prints goes to LOG on this host; the runner gets one status line.
+set -uo pipefail
+
+LOG=/var/log/igdb-scrape/maintenance.log
+
+case "${SSH_ORIGINAL_COMMAND:-}" in
+  "weekly-signals")           args=(weekly-signals) ;;
+  "weekly-signals --dry-run") args=(weekly-signals --dry-run) ;;
+  "weekly-search")            args=(weekly-search) ;;
+  "weekly-search --dry-run")  args=(weekly-search --dry-run) ;;
+  *)
+    echo "refused: unknown task"
+    exit 2
+    ;;
+esac
+task="${args[*]}"
+
+stamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
+# The sync and any igdb-* one-off unit (systemd-run backfills and the like)
+# use the same stored HappyView session, whose refresh tokens are single-use.
+# Two processes refreshing at once would break it, so skip while one runs.
+# The next scheduled run, or a manual one, picks the work up.
+active=$(systemctl list-units --type=service --state=active,activating --no-legend --plain 'igdb-*' 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
+if [ -n "${active// /}" ]; then
+  echo "$(stamp) $task: skipped, active: $active" >> "$LOG"
+  echo "skipped: sync running"
+  exit 0
+fi
+
+# One maintenance run at a time.
+exec 9>/run/cartridge-maintenance.lock
+if ! flock -n 9; then
+  echo "$(stamp) $task: skipped, another maintenance run holds the lock" >> "$LOG"
+  echo "skipped: another maintenance run is in progress"
+  exit 0
+fi
+
+echo "$(stamp) $task: start" >> "$LOG"
+cd /opt/igdb-scrape
+/opt/igdb-scrape/node_modules/.bin/tsx src/maintenance.ts "${args[@]}" >> "$LOG" 2>&1
+status=$?
+echo "$(stamp) $task: exit $status" >> "$LOG"
+
+if [ "$status" -eq 0 ]; then
+  echo "ok: $task queued (details in $LOG on appview)"
+else
+  echo "failed: $task exited $status (details in $LOG on appview)"
+fi
+exit "$status"
